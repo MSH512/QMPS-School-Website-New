@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admission | Quaid-e-Millat Public School Ameerabad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="hero" style="padding-bottom:56px;">
+  <div class="container">
+    <span class="eyebrow">Admissions Open</span>
+    <h1 style="color: white;">Apply for admission</h1>
+    <p class="lead">Fill in the form below to start your child's admission process at QMPS Ameerabad. Our office will contact you to confirm next steps.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="max-width:760px;">
+    <div class="form-card">
+      <div class="form-msg" id="formMsg"></div>
+      <form id="admissionForm">
+        <div class="form-grid">
+          <div class="field">
+            <label for="a-name">Student's full name *</label>
+            <input id="a-name" required>
+          </div>
+          <div class="field">
+            <label for="a-father">Father's name *</label>
+            <input id="a-father" required>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="a-dob">Date of birth *</label>
+            <input id="a-dob" type="date" required>
+          </div>
+          <div class="field">
+            <label for="a-class">Applying for class *</label>
+            <select id="a-class" required>
+              <option value="">Select class</option>
+              <option>Playgroup</option><option>Nursery</option><option>Prep</option>
+              <option>Grade 1</option><option>Grade 2</option><option>Grade 3</option>
+              <option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="a-bform">Child's B-Form number *</label>
+          <input id="a-bform" required>
+        </div>
+        <div class="field">
+          <label for="a-prevschool">Previous school name (if any)</label>
+          <input id="a-prevschool">
+        </div>
+        <div class="field">
+          <label for="a-address">Home address *</label>
+          <textarea id="a-address" required></textarea>
+        </div>
+        <div class="field">
+          <label for="a-reason">Why do you want to join QMPS Ameerabad? *</label>
+          <textarea id="a-reason" required></textarea>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="a-phone">Parent/guardian phone *</label>
+            <input id="a-phone" required>
+          </div>
+          <div class="field">
+            <label for="a-email">Parent/guardian email</label>
+            <input id="a-email" type="email">
+          </div>
+        </div>
+        <div class="field">
+          <label for="a-photo">Student's photo *</label>
+          <input id="a-photo" type="file" accept="image/*" required>
+          <p class="hint">A clear, recent passport-size photo.</p>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="submitBtn">Submit Application</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script type="module" src="js/layout.js"></script>
+<script type="module">
+  import { db, uploadToCloudinary } from "./js/firebase-config.js";
+  import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const form = document.getElementById("admissionForm");
+  const msg = document.getElementById("formMsg");
+  const btn = document.getElementById("submitBtn");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    btn.disabled = true; btn.textContent = "Submitting...";
+    msg.className = "form-msg";
+    try {
+      const photoFile = document.getElementById("a-photo").files[0];
+      const imageUrl = await uploadToCloudinary(photoFile);
+
+      await addDoc(collection(db, "admissions"), {
+        name: document.getElementById("a-name").value,
+        fatherName: document.getElementById("a-father").value,
+        dob: document.getElementById("a-dob").value,
+        appliedClass: document.getElementById("a-class").value,
+        bform: document.getElementById("a-bform").value,
+        previousSchool: document.getElementById("a-prevschool").value,
+        address: document.getElementById("a-address").value,
+        reason: document.getElementById("a-reason").value,
+        phone: document.getElementById("a-phone").value,
+        email: document.getElementById("a-email").value,
+        imageUrl,
+        status: "pending",
+        submittedAt: serverTimestamp()
+      });
+
+      msg.textContent = "Application submitted! The school office will contact you soon.";
+      msg.classList.add("show", "success");
+      form.reset();
+    } catch (err) {
+      msg.textContent = "Something went wrong submitting your application. Please try again.";
+      msg.classList.add("show", "error");
+    } finally {
+      btn.disabled = false; btn.textContent = "Submit Application";
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact Us | Quaid-e-Millat Public School Ameerabad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="hero" style="padding-bottom:56px;">
+  <div class="container">
+    <span class="eyebrow">Contact Us</span>
+    <h1 style="color: white;">We'd love to hear from you</h1>
+    <p class="lead">Reach out with questions about admissions, academics, or anything else &mdash; our team will get back to you.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="display:grid; grid-template-columns:1fr 1.2fr; gap:40px;">
+    <div>
+      <div class="feature-card" style="margin-bottom:16px;">
+        <div class="feature-icon">&#128205;</div>
+        <h3>Address</h3>
+        <p id="contact-address">Near Ameerabad Cricket Stadium, Ameerabad Chorbat, District Ghanche, Gilgit-Baltistan</p>
+      </div>
+      <div class="feature-card" style="margin-bottom:16px;">
+        <div class="feature-icon">&#9742;</div>
+        <h3>Phone</h3>
+        <p id="contact-phone" class="mb-0"><a href="tel:+923555351324">+92 355 5351324</a></p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9993;</div>
+        <h3>Email</h3>
+        <p class="mb-0"><a href="mailto:qmpsameerabad@gmail.com">qmpsameerabad@gmail.com</a></p>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h3>Send us a message</h3>
+      <div class="form-msg" id="contactMsg"></div>
+      <form id="contactForm">
+        <div class="form-grid">
+          <div class="field">
+            <label for="c-name">Full name</label>
+            <input id="c-name" name="name" required>
+          </div>
+          <div class="field">
+            <label for="c-phone">Phone number</label>
+            <input id="c-phone" name="phone" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="c-email">Email address</label>
+          <input id="c-email" type="email" name="email" required>
+        </div>
+        <div class="field">
+          <label for="c-message">Message</label>
+          <textarea id="c-message" name="message" required></textarea>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="contactSubmit">Send Message</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script type="module" src="js/layout.js"></script>
+<script type="module">
+  import { db } from "./js/firebase-config.js";
+  import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const form = document.getElementById("contactForm");
+  const msg = document.getElementById("contactMsg");
+  const btn = document.getElementById("contactSubmit");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    btn.disabled = true; btn.textContent = "Sending...";
+    msg.className = "form-msg";
+    try {
+      const fd = new FormData(form);
+      await addDoc(collection(db, "messages"), {
+        name: fd.get("name"), phone: fd.get("phone"), email: fd.get("email"),
+        message: fd.get("message"), submittedAt: serverTimestamp(), read: false
+      });
+      msg.textContent = "Thank you — your message has been sent. We'll get back to you soon.";
+      msg.classList.add("show", "success");
+      form.reset();
+    } catch (err) {
+      msg.textContent = "Could not send your message. Please try again later or call us directly.";
+      msg.classList.add("show", "error");
+    } finally {
+      btn.disabled = false; btn.textContent = "Send Message";
+    }
+  });
+</script>
+</body>
+</html>

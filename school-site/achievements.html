@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Achievements | Quaid-e-Millat Public School Ameerabad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="hero" style="padding-bottom:56px;">
+  <div class="container">
+    <span class="eyebrow">Achievements</span>
+    <h1 style="color: white;">Celebrating our students</h1>
+    <p class="lead">Academic, sports, and co-curricular achievements from across the school &mdash; updated by the school administration.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="card-grid" id="achievements-list"></div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script type="module" src="js/layout.js"></script>
+<script type="module">
+  import { renderAchievements } from "./js/content.js";
+  renderAchievements("#achievements-list", 30);
+</script>
+</body>
+</html>

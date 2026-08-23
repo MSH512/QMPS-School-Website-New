@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Only the school's admin account may write content. Update the
+    // email below if you ever change the admin login.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == "qmpsameerabad@gmail.com";
+    }
+    // Teachers are signed in with their own school email/password
+    function isTeacher() {
+      return request.auth != null;
+    }
+
+    // ---------- Public content: anyone can read, only admin can write ----------
+    match /news/{id}          { allow read: if true; allow write: if isAdmin(); }
+    match /events/{id}        { allow read: if true; allow write: if isAdmin(); }
+    match /achievements/{id}  { allow read: if true; allow write: if isAdmin(); }
+    match /gallery/{id}       { allow read: if true; allow write: if isAdmin(); }
+    match /siteSettings/{id}  { allow read: if true; allow write: if isAdmin(); }
+
+    // ---------- Student profile (name, class, roll no — no password/contact) ----------
+    match /students/{id} {
+      allow get: if true;               // needed so the student portal can look up a profile after password check
+      allow list: if isAdmin();         // only the admin dashboard can browse the full list
+      allow write: if isAdmin();
+    }
+
+    // ---------- Student password hash — separate doc, never bundled with profile ----------
+    match /studentCredentials/{id} {
+      allow get: if true;               // client needs to read the hash to compare against the entered password
+      allow list: if false;             // can never be listed/enumerated
+      allow write: if isAdmin();
+    }
+
+    // ---------- Parent contact — admin only ----------
+    match /studentPrivate/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // ---------- Teachers ----------
+    match /teachers/{id} {
+      allow read: if isTeacher();       // a teacher can read the staff list (needed to find their own profile)
+      allow write: if isAdmin();
+    }
+
+    // ---------- Results: looked up by Student ID from the portal ----------
+    match /results/{id} {
+      allow read: if true;              // matches "look up by exact Student ID" — not publicly listable in the UI
+      allow write: if isAdmin();
+    }
+
+    // ---------- Forms anyone can submit, only admin can read/manage ----------
+    match /admissions/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    match /jobApplications/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    match /messages/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}

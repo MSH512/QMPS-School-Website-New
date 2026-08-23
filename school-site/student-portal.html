@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Portal | Quaid-e-Millat Public School Ameerabad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="section">
+  <div class="container">
+    <a href="login.html" class="back-link">&larr; Back to portal selection</a>
+
+    <div id="loginView">
+      <div class="login-box">
+        <div class="portal-icon" style="margin-bottom:20px;">&#127891;</div>
+        <h2 class="center">Student Login</h2>
+        <p class="muted center small">Enter the Student ID and password issued by the school office.</p>
+        <div class="form-msg" id="loginMsg"></div>
+        <form id="studentLoginForm">
+          <div class="field">
+            <label for="sid">Student ID</label>
+            <input id="sid" placeholder="e.g. QMPS-26-7-7001" required style="font-family:var(--font-mono);">
+          </div>
+          <div class="field">
+            <label for="spass">Password</label>
+            <input id="spass" type="password" required>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit" id="loginBtn">Log In</button>
+        </form>
+        <p class="small muted center" style="margin-top:16px;">Forgotten password? Contact the school office &mdash; the admin can reset it for you.</p>
+      </div>
+    </div>
+
+    <div id="portalView" style="display:none;">
+      <div class="admin-topbar">
+        <div>
+          <h2 class="mb-0" id="welcomeName">Welcome</h2>
+          <p class="muted mb-0" id="welcomeMeta"></p>
+        </div>
+        <button class="btn btn-outline" style="border-color:var(--line); color:var(--navy-900);" id="logoutBtn">Log Out</button>
+      </div>
+
+      <div class="admin-card">
+        <h3>My Result</h3>
+        <div id="resultArea"><p class="muted">Loading your results&hellip;</p></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>Latest News &amp; Notices</h3>
+        <div class="card-grid" id="portal-news"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script type="module" src="js/layout.js"></script>
+<script type="module">
+  import { db } from "./js/firebase-config.js";
+  import { doc, getDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { sha256Hex } from "./js/auth-utils.js";
+  import { renderNews } from "./js/content.js";
+
+  const loginView = document.getElementById("loginView");
+  const portalView = document.getElementById("portalView");
+  const msg = document.getElementById("loginMsg");
+  const form = document.getElementById("studentLoginForm");
+  const loginBtn = document.getElementById("loginBtn");
+
+  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginBtn.disabled = true; loginBtn.textContent = "Checking...";
+    msg.className = "form-msg";
+    const sid = document.getElementById("sid").value.trim().toUpperCase();
+    const pass = document.getElementById("spass").value;
+
+    try {
+      // Check the password hash first (kept in a separate collection from
+      // the profile, so a mistyped password never exposes profile data).
+      const credSnap = await getDoc(doc(db, "studentCredentials", sid));
+      if (!credSnap.exists()) throw new Error("not-found");
+      const hash = await sha256Hex(pass);
+      if (hash !== credSnap.data().passwordHash) throw new Error("bad-password");
+
+      const snap = await getDoc(doc(db, "students", sid));
+      if (!snap.exists()) throw new Error("not-found");
+
+      sessionStorage.setItem("qmps_student_id", sid);
+      showPortal(sid, snap.data());
+    } catch (err) {
+      msg.textContent = "Student ID or password is incorrect. Please check with the school office.";
+      msg.classList.add("show", "error");
+    } finally {
+      loginBtn.disabled = false; loginBtn.textContent = "Log In";
+    }
+  });
+
+  async function showPortal(sid, student) {
+    loginView.style.display = "none";
+    portalView.style.display = "block";
+    document.getElementById("welcomeName").textContent = "Welcome, " + student.name;
+    document.getElementById("welcomeMeta").textContent = `Student ID: ${sid} · Class: ${student.class} · Roll No: ${student.rollNo}`;
+
+    const resultArea = document.getElementById("resultArea");
+    try {
+      const q = query(collection(db, "results"), where("studentId", "==", sid), orderBy("date", "desc"));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        resultArea.innerHTML = `<div class="empty-state">No result has been uploaded for you yet.</div>`;
+        return;
+      }
+      resultArea.innerHTML = snap.docs.map((d) => {
+        const r = d.data();
+        const rows = (r.subjects || []).map(s => `
+          <tr><td>${esc(s.name)}</td><td>${esc(s.marks)}</td><td>${esc(s.obtained)}</td></tr>`).join("");
+        return `
+        <div style="margin-bottom:28px;">
+          <div class="result-header">
+            <div><h3 class="mb-0">${esc(r.examTitle)}</h3><p class="small muted mb-0">Father's Name: ${esc(r.fatherName)} &middot; Class: ${esc(r.class)}</p></div>
+            <span class="result-id">${esc(sid)}</span>
+          </div>
+          <table class="result-table">
+            <thead><tr><th>Subject</th><th>Total Marks</th><th>Obtained Marks</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+              <tr><td><strong>Total</strong></td><td colspan="2"><strong>${esc(r.total)}</strong></td></tr>
+              <tr><td><strong>Percentage</strong></td><td colspan="2"><strong>${esc(r.percentage)}%</strong></td></tr>
+              <tr><td><strong>Grade</strong></td><td colspan="2"><strong>${esc(r.grade)}</strong></td></tr>
+            </tfoot>
+          </table>
+          <p class="small muted" style="margin-top:8px;"><strong>Remarks:</strong> ${esc(r.remarks || "—")}</p>
+        </div>`;
+      }).join("");
+    } catch (err) {
+      resultArea.innerHTML = `<div class="empty-state">Could not load your result right now. Please try again later.</div>`;
+    }
+
+    renderNews("#portal-news", 3);
+  }
+
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    sessionStorage.removeItem("qmps_student_id");
+    location.reload();
+  });
+
+  // Resume session
+  const existing = sessionStorage.getItem("qmps_student_id");
+  if (existing) {
+    getDoc(doc(db, "students", existing)).then((snap) => {
+      if (snap.exists()) showPortal(existing, snap.data());
+    }).catch(() => {});
+  }
+</script>
+</body>
+</html>

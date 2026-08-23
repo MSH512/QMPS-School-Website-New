@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Portal | Quaid-e-Millat Public School Ameerabad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="section">
+  <div class="container">
+    <a href="login.html" class="back-link">&larr; Back to portal selection</a>
+
+    <div id="loginView">
+      <div class="login-box">
+        <div class="portal-icon" style="margin-bottom:20px;">&#128104;&#8205;&#127979;&#65039;</div>
+        <h2 class="center">Teacher Login</h2>
+        <p class="muted center small">Log in with the email and password provided by the school.</p>
+        <div class="form-msg" id="loginMsg"></div>
+        <form id="teacherLoginForm">
+          <div class="field">
+            <label for="temail">Email</label>
+            <input id="temail" type="email" required>
+          </div>
+          <div class="field">
+            <label for="tpass">Password</label>
+            <input id="tpass" type="password" required>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit" id="loginBtn">Log In</button>
+        </form>
+        <p class="small center" style="margin-top:16px;"><a href="#" id="forgotLink" class="back-link" style="margin:0;">Forgot password?</a></p>
+      </div>
+    </div>
+
+    <div id="portalView" style="display:none;">
+      <div class="admin-topbar">
+        <div>
+          <h2 class="mb-0" id="welcomeName">Welcome</h2>
+          <p class="muted mb-0" id="welcomeMeta"></p>
+        </div>
+        <button class="btn btn-outline" style="border-color:var(--line); color:var(--navy-900);" id="logoutBtn">Log Out</button>
+      </div>
+
+      <div class="admin-card">
+        <h3>My Assigned Classes</h3>
+        <div id="classesArea"><p class="muted">Loading&hellip;</p></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>Latest News &amp; Notices</h3>
+        <div class="card-grid" id="portal-news"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script type="module" src="js/layout.js"></script>
+<script type="module">
+  import { auth, db } from "./js/firebase-config.js";
+  import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { renderNews } from "./js/content.js";
+
+  const loginView = document.getElementById("loginView");
+  const portalView = document.getElementById("portalView");
+  const msg = document.getElementById("loginMsg");
+  const form = document.getElementById("teacherLoginForm");
+  const loginBtn = document.getElementById("loginBtn");
+
+  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginBtn.disabled = true; loginBtn.textContent = "Logging in...";
+    msg.className = "form-msg";
+    try {
+      await signInWithEmailAndPassword(auth, document.getElementById("temail").value.trim(), document.getElementById("tpass").value);
+    } catch (err) {
+      msg.textContent = "Email or password is incorrect.";
+      msg.classList.add("show", "error");
+    } finally {
+      loginBtn.disabled = false; loginBtn.textContent = "Log In";
+    }
+  });
+
+  document.getElementById("forgotLink").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("temail").value.trim();
+    if (!email) { msg.textContent = "Enter your email above first, then click 'Forgot password?'"; msg.className = "form-msg show error"; return; }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      msg.textContent = "A password reset link has been sent to " + email + ".";
+      msg.className = "form-msg show success";
+    } catch {
+      msg.textContent = "Could not send reset email. Please contact the school office.";
+      msg.className = "form-msg show error";
+    }
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth));
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { loginView.style.display = "block"; portalView.style.display = "none"; return; }
+    loginView.style.display = "none";
+    portalView.style.display = "block";
+
+    try {
+      const q = query(collection(db, "teachers"), where("email", "==", user.email));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const t = snap.docs[0].data();
+        document.getElementById("welcomeName").textContent = "Welcome, " + t.name;
+        document.getElementById("welcomeMeta").textContent = `Subject: ${t.subject || "—"}`;
+        const classes = t.assignedClasses || [];
+        document.getElementById("classesArea").innerHTML = classes.length
+          ? `<div class="card-grid">` + classes.map(c => `<div class="feature-card"><h3>${esc(c)}</h3></div>`).join("") + `</div>`
+          : `<div class="empty-state">No classes have been assigned to you yet. Contact the admin.</div>`;
+      } else {
+        document.getElementById("welcomeName").textContent = "Welcome";
+        document.getElementById("classesArea").innerHTML = `<div class="empty-state">Your teacher profile hasn't been set up yet. Contact the admin.</div>`;
+      }
+    } catch {
+      document.getElementById("classesArea").innerHTML = `<div class="empty-state">Could not load your classes right now.</div>`;
+    }
+
+    renderNews("#portal-news", 3);
+  });
+</script>
+</body>
+</html>

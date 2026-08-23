@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Careers | Quaid-e-Millat Public School Ameerabad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="hero" style="padding-bottom:56px;">
+  <div class="container">
+    <span class="eyebrow">We're Hiring</span>
+    <h1 style="color: white;">Careers at QMPS Ameerabad</h1>
+    <p class="lead">Interested in joining our teaching or administrative team? Submit your application below.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="max-width:760px;">
+    <div class="form-card">
+      <div class="form-msg" id="formMsg"></div>
+      <form id="jobForm">
+        <div class="form-grid">
+          <div class="field">
+            <label for="j-name">Full name *</label>
+            <input id="j-name" required>
+          </div>
+          <div class="field">
+            <label for="j-father">Father's name *</label>
+            <input id="j-father" required>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="j-dob">Date of birth *</label>
+            <input id="j-dob" type="date" required>
+          </div>
+          <div class="field">
+            <label for="j-cnic">CNIC number *</label>
+            <input id="j-cnic" placeholder="XXXXX-XXXXXXX-X" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="j-position">Position applying for *</label>
+          <input id="j-position" placeholder="e.g. Primary Teacher, Admin Assistant" required>
+        </div>
+        <div class="field">
+          <label for="j-address">Address *</label>
+          <textarea id="j-address" required></textarea>
+        </div>
+        <div class="field">
+          <label for="j-experience">Experience *</label>
+          <textarea id="j-experience" placeholder="Summarise your relevant teaching / work experience" required></textarea>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="j-phone">Phone *</label>
+            <input id="j-phone" required>
+          </div>
+          <div class="field">
+            <label for="j-email">Email *</label>
+            <input id="j-email" type="email" required>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="j-photo">Your photo *</label>
+            <input id="j-photo" type="file" accept="image/*" required>
+          </div>
+          <div class="field">
+            <label for="j-cv">CV (PDF) *</label>
+            <input id="j-cv" type="file" accept="application/pdf" required>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="submitBtn">Submit Application</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script type="module" src="js/layout.js"></script>
+<script type="module">
+  import { db, uploadToCloudinary } from "./js/firebase-config.js";
+  import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const form = document.getElementById("jobForm");
+  const msg = document.getElementById("formMsg");
+  const btn = document.getElementById("submitBtn");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    btn.disabled = true; btn.textContent = "Submitting...";
+    msg.className = "form-msg";
+    try {
+      const imageUrl = await uploadToCloudinary(document.getElementById("j-photo").files[0]);
+      const cvUrl = await uploadToCloudinary(document.getElementById("j-cv").files[0]);
+
+      await addDoc(collection(db, "jobApplications"), {
+        name: document.getElementById("j-name").value,
+        fatherName: document.getElementById("j-father").value,
+        dob: document.getElementById("j-dob").value,
+        cnic: document.getElementById("j-cnic").value,
+        position: document.getElementById("j-position").value,
+        address: document.getElementById("j-address").value,
+        experience: document.getElementById("j-experience").value,
+        phone: document.getElementById("j-phone").value,
+        email: document.getElementById("j-email").value,
+        imageUrl, cvUrl,
+        status: "pending",
+        submittedAt: serverTimestamp()
+      });
+
+      msg.textContent = "Application submitted! The school office will review it and contact you.";
+      msg.classList.add("show", "success");
+      form.reset();
+    } catch (err) {
+      msg.textContent = "Something went wrong submitting your application. Please try again.";
+      msg.classList.add("show", "error");
+    } finally {
+      btn.disabled = false; btn.textContent = "Submit Application";
+    }
+  });
+</script>
+</body>
+</html>

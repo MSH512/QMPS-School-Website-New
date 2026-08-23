@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Events | Quaid-e-Millat Public School Ameerabad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="hero" style="padding-bottom:56px;">
+  <div class="container">
+    <span class="eyebrow">Events</span>
+    <h1 style="color: white;">Dynamic events, all year round</h1>
+    <p class="lead">From science exhibitions to cultural celebrations &mdash; events that encourage creativity, confidence, and talent development.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="card-grid" id="events-list"></div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script type="module" src="js/layout.js"></script>
+<script type="module">
+  import { renderEvents } from "./js/content.js";
+  renderEvents("#events-list", 30);
+</script>
+</body>
+</html>

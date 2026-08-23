@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gallery | Quaid-e-Millat Public School Ameerabad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="hero" style="padding-bottom:56px;">
+  <div class="container">
+    <span class="eyebrow">Gallery</span>
+    <h1 style="color: white;">Life at QMPS Ameerabad</h1>
+    <p class="lead">Explore memorable moments, student achievements, events, and classroom activities &mdash; updated regularly by the school.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="photos">Photos</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="videos">Videos</button>
+    </div>
+
+    <div class="tab-panel active" id="panel-photos">
+      <div class="card-grid" id="gallery-photos"></div>
+    </div>
+    <div class="tab-panel" id="panel-videos">
+      <div class="card-grid" id="gallery-videos"></div>
+    </div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script type="module" src="js/layout.js"></script>
+<script type="module">
+  import { renderGallery } from "./js/content.js";
+  renderGallery("#gallery-photos", "#gallery-videos");
+
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => { b.classList.remove("active"); b.setAttribute("aria-selected","false"); });
+      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+      btn.classList.add("active"); btn.setAttribute("aria-selected","true");
+      document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+</script>
+</body>
+</html>
