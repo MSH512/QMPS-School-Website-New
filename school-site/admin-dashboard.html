@@ -18,7 +18,7 @@
     <form id="adminLoginForm">
       <div class="field">
         <label for="aemail">Email</label>
-        <input id="aemail" type="email" required value="qmpsameerabad@gmail.com">
+        <input id="aemail" type="email" required placeholder="admin@example.com">
       </div>
       <div class="field">
         <label for="apass">Password</label>
@@ -44,6 +44,8 @@
       <button data-panel="students">Students</button>
       <button data-panel="teachers">Teachers</button>
       <button data-panel="results">Results</button>
+      <button data-panel="complaints">Shikayat Letters</button>
+      <button data-panel="progress">Progress Reports</button>
       <button data-panel="admissions">Admissions</button>
       <button data-panel="jobs">Job Applications</button>
       <button data-panel="messages">Contact Messages</button>
@@ -96,8 +98,18 @@
     </section>
 
     <section class="admin-panel" id="panel-results">
-      <div style="display:flex; justify-content:flex-end; margin-bottom:16px;"><button class="btn btn-primary btn-sm" id="addResultBtn">+ Add Result</button></div>
-      <table class="data-table"><thead><tr><th>Student ID</th><th>Exam</th><th>Total %</th><th>Grade</th><th></th></tr></thead><tbody id="resultsTable"></tbody></table>
+      <p class="muted small" style="margin-bottom:16px;">Results are uploaded by teachers from the Teacher Portal (Weekly, Monthly, and Term results). This panel is for viewing and removing entries only.</p>
+      <table class="data-table"><thead><tr><th>Student ID</th><th>Result</th><th>%</th><th>Grade</th><th></th></tr></thead><tbody id="resultsTable"></tbody></table>
+    </section>
+
+    <section class="admin-panel" id="panel-complaints">
+      <p class="muted small" style="margin-bottom:16px;">Shikayat letters sent by teachers to students, viewable here for oversight.</p>
+      <table class="data-table"><thead><tr><th>Student</th><th>Class</th><th>Subject</th><th>Type</th><th>Teacher</th><th>Date</th><th></th></tr></thead><tbody id="complaintsTable"></tbody></table>
+    </section>
+
+    <section class="admin-panel" id="panel-progress">
+      <p class="muted small" style="margin-bottom:16px;">Progress reports uploaded by teachers, viewable here for oversight.</p>
+      <table class="data-table"><thead><tr><th>Student</th><th>Title</th><th>Teacher</th><th>Date</th><th>File</th><th></th></tr></thead><tbody id="progressTable"></tbody></table>
     </section>
 
     <section class="admin-panel" id="panel-admissions">
@@ -115,20 +127,29 @@
     <section class="admin-panel" id="panel-settings">
       <div class="admin-card">
         <h3>School Logo</h3>
-        <div class="field"><label>Upload new logo</label><input type="file" id="set-logo" accept="image/*"></div>
+        <div id="logoFieldContainer"></div>
         <button class="btn btn-dark btn-sm" id="saveLogoBtn">Save Logo</button>
       </div>
       <div class="admin-card">
         <h3>Principal's Photo</h3>
         <p class="muted small">Shown on the Home page and About Us page.</p>
-        <div class="field"><label>Upload photo</label><input type="file" id="set-principal" accept="image/*"></div>
+        <div id="principalFieldContainer"></div>
         <button class="btn btn-dark btn-sm" id="savePrincipalBtn">Save Principal Photo</button>
       </div>
       <div class="admin-card">
         <h3>School Photo (Homepage)</h3>
         <p class="muted small">Shown in the large frame at the top of the Home page, in place of the mountain artwork.</p>
-        <div class="field"><label>Upload photo</label><input type="file" id="set-schoolphoto" accept="image/*"></div>
+        <div id="schoolPhotoFieldContainer"></div>
         <button class="btn btn-dark btn-sm" id="saveSchoolPhotoBtn">Save School Photo</button>
+      </div>
+      <div class="admin-card">
+        <h3>Period Timings</h3>
+        <p class="muted small">Set once here — every teacher's timetable automatically shows these start/end times next to their periods.</p>
+        <table class="data-table" style="margin-bottom:16px;">
+          <thead><tr><th>Period</th><th>Start Time</th><th>End Time</th></tr></thead>
+          <tbody id="periodTimesBody"></tbody>
+        </table>
+        <button class="btn btn-primary btn-sm" id="savePeriodTimesBtn">Save Period Timings</button>
       </div>
       <div class="admin-card">
         <h3>Social Media Links</h3>
