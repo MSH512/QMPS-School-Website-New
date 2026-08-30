@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Portal | Quaid-e-Millat Public School Ameerabad</title>
 <link rel="stylesheet" href="css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 </head>
 <body>
 <div id="site-header"></div>
@@ -44,8 +45,31 @@
       </div>
 
       <div class="admin-card">
+        <h3>My Progress at a Glance</h3>
+        <div class="stat-row" id="analyticsStats"></div>
+        <div style="max-width:640px;"><canvas id="trendChart" height="220"></canvas></div>
+      </div>
+
+      <div class="admin-card">
         <h3>My Result</h3>
-        <div id="resultArea"><p class="muted">Loading your results&hellip;</p></div>
+        <div class="tabs">
+          <button class="tab-btn active" data-restab="term">Term</button>
+          <button class="tab-btn" data-restab="monthly">Monthly</button>
+          <button class="tab-btn" data-restab="weekly">Weekly</button>
+        </div>
+        <div class="tab-panel active" id="restab-term"><div id="resultTerm"><p class="muted">Loading&hellip;</p></div></div>
+        <div class="tab-panel" id="restab-monthly"><div id="resultMonthly"><p class="muted">Loading&hellip;</p></div></div>
+        <div class="tab-panel" id="restab-weekly"><div id="resultWeekly"><p class="muted">Loading&hellip;</p></div></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>Progress Reports</h3>
+        <div id="progressArea"><p class="muted">Loading&hellip;</p></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>Shikayat Letters</h3>
+        <div id="complaintsArea"><p class="muted">Loading&hellip;</p></div>
       </div>
 
       <div class="admin-card">
@@ -60,8 +84,9 @@
 <script type="module" src="js/layout.js"></script>
 <script type="module">
   import { db } from "./js/firebase-config.js";
-  import { doc, getDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
   import { sha256Hex } from "./js/auth-utils.js";
+  import { esc, fmtDate } from "./js/media-utils.js";
   import { renderNews } from "./js/content.js";
 
   const loginView = document.getElementById("loginView");
@@ -69,8 +94,6 @@
   const msg = document.getElementById("loginMsg");
   const form = document.getElementById("studentLoginForm");
   const loginBtn = document.getElementById("loginBtn");
-
-  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -80,8 +103,6 @@
     const pass = document.getElementById("spass").value;
 
     try {
-      // Check the password hash first (kept in a separate collection from
-      // the profile, so a mistyped password never exposes profile data).
       const credSnap = await getDoc(doc(db, "studentCredentials", sid));
       if (!credSnap.exists()) throw new Error("not-found");
       const hash = await sha256Hex(pass);
@@ -100,47 +121,193 @@
     }
   });
 
+  document.querySelector(".tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab-btn[data-restab]");
+    if (!btn) return;
+    document.querySelectorAll(".tabs .tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".admin-card .tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("restab-" + btn.dataset.restab).classList.add("active");
+  });
+
   async function showPortal(sid, student) {
     loginView.style.display = "none";
     portalView.style.display = "block";
     document.getElementById("welcomeName").textContent = "Welcome, " + student.name;
     document.getElementById("welcomeMeta").textContent = `Student ID: ${sid} · Class: ${student.class} · Roll No: ${student.rollNo}`;
 
-    const resultArea = document.getElementById("resultArea");
+    loadResults(sid);
+    loadAnalytics(sid, student.class);
+    loadProgressReports(sid);
+    loadComplaints(sid);
+    renderNews("#portal-news", 3);
+  }
+
+  let trendChartInstance = null;
+  async function loadAnalytics(sid, studentClass) {
+    const statsEl = document.getElementById("analyticsStats");
+    statsEl.innerHTML = `<div class="stat-box"><b>&hellip;</b><span>Loading</span></div>`;
     try {
-      const q = query(collection(db, "results"), where("studentId", "==", sid), orderBy("date", "desc"));
-      const snap = await getDocs(q);
-      if (snap.empty) {
-        resultArea.innerHTML = `<div class="empty-state">No result has been uploaded for you yet.</div>`;
-        return;
+      const resSnap = await getDocs(query(collection(db, "results"), where("studentId", "==", sid)));
+      const results = resSnap.docs.map((d) => d.data()).sort((a, b) => toMillis(a.date) - toMillis(b.date));
+      const percentages = results.map((r) => r.percentage).filter((n) => typeof n === "number");
+      const academic = percentages.length ? Math.round(percentages.reduce((a, b) => a + b, 0) / percentages.length) : null;
+
+      const attSnap = await getDocs(query(collection(db, "attendance"), where("class", "==", studentClass)));
+      let present = 0, recorded = 0;
+      attSnap.docs.forEach((d) => {
+        const records = d.data().records || {};
+        if (sid in records) { recorded++; if (records[sid] === "present") present++; }
+      });
+      const attendance = recorded ? Math.round((present / recorded) * 100) : null;
+
+      const compSnap = await getDocs(query(collection(db, "complaints"), where("studentId", "==", sid)));
+      const complaintCount = compSnap.size;
+      const discipline = Math.max(0, 100 - complaintCount * 15);
+
+      statsEl.innerHTML = `
+        <div class="stat-box"><b>${academic === null ? "—" : academic + "%"}</b><span>Average Result</span></div>
+        <div class="stat-box"><b>${attendance === null ? "—" : attendance + "%"}</b><span>Attendance</span></div>
+        <div class="stat-box"><b>${discipline}%</b><span>Discipline Score</span></div>
+        <div class="stat-box"><b>${complaintCount}</b><span>Shikayat Letters</span></div>`;
+
+      const ctx = document.getElementById("trendChart");
+      if (ctx && typeof Chart !== "undefined") {
+        if (trendChartInstance) trendChartInstance.destroy();
+        if (results.length) {
+          trendChartInstance = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: results.map((r) => r.label || r.examTitle || fmtDate(r.date)),
+              datasets: [{
+                label: "Result %",
+                data: results.map((r) => r.percentage),
+                borderColor: "#D9A441", backgroundColor: "rgba(217,164,65,.15)", fill: true, tension: 0.25
+              }]
+            },
+            options: { scales: { y: { beginAtZero: true, max: 100 } } }
+          });
+        } else {
+          ctx.getContext("2d").font = "14px sans-serif";
+        }
       }
-      resultArea.innerHTML = snap.docs.map((d) => {
-        const r = d.data();
-        const rows = (r.subjects || []).map(s => `
-          <tr><td>${esc(s.name)}</td><td>${esc(s.marks)}</td><td>${esc(s.obtained)}</td></tr>`).join("");
+    } catch {
+      statsEl.innerHTML = `<div class="empty-state">Could not load analytics right now.</div>`;
+    }
+  }
+
+  // Fetches all results for this student in one simple query (filtered
+  // only by studentId, so it never needs a Firestore composite index),
+  // then splits and sorts them by type in the browser.
+  function toMillis(v) { return v?.toDate ? v.toDate().getTime() : new Date(v).getTime() || 0; }
+
+  async function loadResults(sid) {
+    try {
+      const q = query(collection(db, "results"), where("studentId", "==", sid));
+      const snap = await getDocs(q);
+      const all = snap.docs.map((d) => d.data()).sort((a, b) => toMillis(b.date) - toMillis(a.date));
+      renderTermResults(all.filter((r) => r.type === "term"));
+      renderSubjectResults(all.filter((r) => r.type === "monthly"), "monthly", "#resultMonthly");
+      renderSubjectResults(all.filter((r) => r.type === "weekly"), "weekly", "#resultWeekly");
+    } catch {
+      document.getElementById("resultTerm").innerHTML = `<div class="empty-state">Could not load your results right now.</div>`;
+      document.getElementById("resultMonthly").innerHTML = "";
+      document.getElementById("resultWeekly").innerHTML = "";
+    }
+  }
+
+  function renderTermResults(results) {
+    const el = document.getElementById("resultTerm");
+    if (!results.length) { el.innerHTML = `<div class="empty-state">No term result uploaded yet.</div>`; return; }
+    el.innerHTML = results.map((r) => {
+      const rows = (r.subjects || []).map((s) => `<tr><td>${esc(s.name)}</td><td>${esc(s.marks)}</td><td>${esc(s.obtained)}</td></tr>`).join("");
+      return `
+      <div style="margin-bottom:28px;">
+        <div class="result-header">
+          <div><h3 class="mb-0">${esc(r.examTitle)}</h3><p class="small muted mb-0">Father's Name: ${esc(r.fatherName)} &middot; Class: ${esc(r.class)}</p></div>
+          <span class="result-id">${esc(r.studentId)}</span>
+        </div>
+        <table class="result-table">
+          <thead><tr><th>Subject</th><th>Total Marks</th><th>Obtained Marks</th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr><td><strong>Total</strong></td><td colspan="2"><strong>${esc(r.total)}</strong></td></tr>
+            <tr><td><strong>Percentage</strong></td><td colspan="2"><strong>${esc(r.percentage)}%</strong></td></tr>
+            <tr><td><strong>Grade</strong></td><td colspan="2"><strong>${esc(r.grade)}</strong></td></tr>
+          </tfoot>
+        </table>
+        <p class="small muted" style="margin-top:8px;"><strong>Remarks:</strong> ${esc(r.remarks || "—")}</p>
+      </div>`;
+    }).join("");
+  }
+
+  function renderSubjectResults(results, type, selector) {
+    const el = document.querySelector(selector);
+    if (!results.length) { el.innerHTML = `<div class="empty-state">No ${type} results uploaded yet.</div>`; return; }
+    el.innerHTML = `
+      <table class="result-table">
+        <thead><tr><th>${type === "weekly" ? "Week" : "Month"}</th><th>Subject</th><th>Marks</th><th>%</th><th>Grade</th></tr></thead>
+        <tbody>
+          ${results.map((r) => `<tr><td>${esc(r.label)}</td><td>${esc(r.subject)}</td><td>${esc(r.marksObtained)} / ${esc(r.marksTotal)}</td><td>${esc(r.percentage)}%</td><td>${esc(r.grade)}</td></tr>`).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  async function loadProgressReports(sid) {
+    const el = document.getElementById("progressArea");
+    try {
+      const q = query(collection(db, "progressReports"), where("studentId", "==", sid));
+      const snap = await getDocs(q);
+      const items = snap.docs.map((d) => d.data()).sort((a, b) => toMillis(b.date) - toMillis(a.date));
+      if (!items.length) { el.innerHTML = `<div class="empty-state">No progress reports yet.</div>`; return; }
+      el.innerHTML = items.map((p, i) => {
         return `
-        <div style="margin-bottom:28px;">
-          <div class="result-header">
-            <div><h3 class="mb-0">${esc(r.examTitle)}</h3><p class="small muted mb-0">Father's Name: ${esc(r.fatherName)} &middot; Class: ${esc(r.class)}</p></div>
-            <span class="result-id">${esc(sid)}</span>
-          </div>
-          <table class="result-table">
-            <thead><tr><th>Subject</th><th>Total Marks</th><th>Obtained Marks</th></tr></thead>
-            <tbody>${rows}</tbody>
-            <tfoot>
-              <tr><td><strong>Total</strong></td><td colspan="2"><strong>${esc(r.total)}</strong></td></tr>
-              <tr><td><strong>Percentage</strong></td><td colspan="2"><strong>${esc(r.percentage)}%</strong></td></tr>
-              <tr><td><strong>Grade</strong></td><td colspan="2"><strong>${esc(r.grade)}</strong></td></tr>
-            </tfoot>
-          </table>
-          <p class="small muted" style="margin-top:8px;"><strong>Remarks:</strong> ${esc(r.remarks || "—")}</p>
+        <div style="margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line);">
+          <h3 class="mb-0">${esc(p.title)}</h3>
+          <p class="small muted">${fmtDate(p.date)}${p.teacherName ? " · " + esc(p.teacherName) : ""}</p>
+          <div style="max-width:480px;"><canvas id="prog-chart-${i}" height="200"></canvas></div>
+          <p style="margin-top:12px;"><strong>Teacher's Review:</strong> ${esc(p.teacherReview || p.remarks || "")}</p>
         </div>`;
       }).join("");
-    } catch (err) {
-      resultArea.innerHTML = `<div class="empty-state">Could not load your result right now. Please try again later.</div>`;
-    }
 
-    renderNews("#portal-news", 3);
+      items.forEach((p, i) => {
+        const m = p.metrics || {};
+        const ctx = document.getElementById(`prog-chart-${i}`);
+        if (!ctx || typeof Chart === "undefined") return;
+        new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: ["Academic", "Attendance", "Discipline"],
+            datasets: [{
+              data: [m.academic || 0, m.attendance || 0, m.discipline || 0],
+              backgroundColor: ["#D9A441", "#4C6B8A", "#3E7C59"]
+            }]
+          },
+          options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, max: 100 } }
+          }
+        });
+      });
+    } catch {
+      el.innerHTML = `<div class="empty-state">Could not load progress reports right now.</div>`;
+    }
+  }
+
+  async function loadComplaints(sid) {
+    const el = document.getElementById("complaintsArea");
+    try {
+      const q = query(collection(db, "complaints"), where("studentId", "==", sid));
+      const snap = await getDocs(q);
+      const items = snap.docs.map((d) => d.data()).sort((a, b) => toMillis(b.date) - toMillis(a.date));
+      if (!items.length) { el.innerHTML = `<div class="empty-state">No shikayat letters — great job!</div>`; return; }
+      el.innerHTML = `<table class="result-table">
+        <thead><tr><th>Date</th><th>Subject</th><th>Type</th><th>Message</th><th>Teacher</th></tr></thead>
+        <tbody>${items.map((c) => `<tr><td>${fmtDate(c.date)}</td><td>${esc(c.subject)}</td><td>${esc(c.complaintType)}</td><td>${esc(c.message)}</td><td>${esc(c.teacherName)}</td></tr>`).join("")}</tbody>
+      </table>`;
+    } catch {
+      el.innerHTML = `<div class="empty-state">Could not load shikayat letters right now.</div>`;
+    }
   }
 
   document.getElementById("logoutBtn").addEventListener("click", () => {
