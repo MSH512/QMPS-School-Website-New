@@ -39,8 +39,11 @@ const SAMPLE = {
     { title: "Independence Day Celebration", date: new Date(), description: "Cultural programme, tableau and flag-hoisting ceremony with the whole school community.", location: "School Campus" }
   ],
   achievements: [
-    { title: "District-level Quiz Champion", studentName: "Sample Student", description: "Placed first in the Ghanche district inter-school quiz competition.", date: new Date() },
-    { title: "Cricket Tournament Runners-up", studentName: "QMPS Team", description: "The school cricket team reached the final of the regional schools tournament.", date: new Date() }
+    { title: "Academic Excellence", personName: "Ayesha Karim", personRole: "Student", description: "Secured first position in the Grade 6 annual examinations with outstanding results across all subjects.", date: new Date(), media: [] },
+    { title: "District-level Quiz Champion", personName: "Hassan Ali", personRole: "Student", description: "Placed first in the Ghanche district inter-school quiz competition, representing QMPS Ameerabad.", date: new Date(), media: [] },
+    { title: "Best Teacher Award", personName: "Ms. Fatima Batool", personRole: "Teacher", description: "Recognised for outstanding dedication and innovative teaching methods in the primary section.", date: new Date(), media: [] },
+    { title: "Leadership Recognition", personName: "Malik Gulzar Hussain", personRole: "Principal", description: "Honoured by the district education office for two decades of service to quality education in Ghanche.", date: new Date(), media: [] },
+    { title: "Cricket Tournament Runners-up", personName: "QMPS School Team", personRole: "Student", description: "The school cricket team reached the final of the regional schools tournament.", date: new Date(), media: [] }
   ],
   gallery: [
     { type: "photo", caption: "Classroom activity", date: new Date() },
@@ -95,7 +98,8 @@ export async function renderEvents(targetSelector, max = 6) {
     items = SAMPLE.events;
   }
   el.innerHTML = items.map((e) => cardShell({
-    tag: e.location, title: e.title, meta: fmtDate(e.date), body: e.description, url: e.imageUrl
+    tag: e.location, title: e.title, meta: fmtDate(e.date), body: e.description,
+    url: e.imageUrl, isVideo: !e.imageUrl && !!e.videoUrl, linkUrl: e.videoUrl || ""
   })).join("");
 }
 
@@ -110,9 +114,33 @@ export async function renderAchievements(targetSelector, max = 6) {
   } catch {
     items = SAMPLE.achievements;
   }
-  el.innerHTML = items.map((a) => cardShell({
-    tag: a.studentName, title: a.title, meta: fmtDate(a.date), body: a.description, url: a.imageUrl
-  })).join("");
+  el.innerHTML = items.map((a) => {
+    const media = a.media || [];
+    const firstImage = media.find((m) => m.type !== "video");
+    const firstVideo = !firstImage && media.find((m) => m.type === "video");
+    const extra = media.length > 1
+      ? `<div style="display:flex; gap:6px; margin-top:8px;">${media.slice(1, 4).map((m) =>
+          m.type === "video"
+            ? `<a href="${esc(m.url)}" target="_blank" style="width:44px; height:44px; border-radius:6px; background:var(--navy-900); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.9rem;">&#9658;</a>`
+            : `<img src="${esc(m.url)}" alt="" style="width:44px; height:44px; object-fit:cover; border-radius:6px;">`
+        ).join("")}${media.length > 4 ? `<span style="width:44px; height:44px; border-radius:6px; background:var(--paper-100); display:flex; align-items:center; justify-content:center; font-size:.75rem; color:var(--ink-400);">+${media.length - 4}</span>` : ""}</div>`
+      : "";
+    return `
+    <article class="info-card">
+      <div class="thumb">
+        ${firstImage ? `<img src="${esc(firstImage.url)}" alt="${esc(a.title)}" loading="lazy">` : ""}
+        ${firstVideo ? `<div class="play"><span>&#9658;</span></div>` : ""}
+      </div>
+      <div class="body">
+        <span class="tag">${esc(a.personRole || "")}</span>
+        <div class="date">${esc(fmtDate(a.date))}</div>
+        <h3>${esc(a.title)}</h3>
+        <p style="margin-bottom:4px;"><strong>${esc(a.personName)}</strong></p>
+        <p>${esc(a.description ?? a.details)}</p>
+        ${extra}
+      </div>
+    </article>`;
+  }).join("");
 }
 
 export async function renderGallery(photoSelector, videoSelector) {
