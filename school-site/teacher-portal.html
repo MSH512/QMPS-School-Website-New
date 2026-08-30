@@ -43,9 +43,158 @@
         <button class="btn btn-outline" style="border-color:var(--line); color:var(--navy-900);" id="logoutBtn">Log Out</button>
       </div>
 
-      <div class="admin-card">
-        <h3>My Assigned Classes</h3>
-        <div id="classesArea"><p class="muted">Loading&hellip;</p></div>
+      <div class="tabs" id="teacherTabs">
+        <button class="tab-btn active" data-tab="timetable">My Timetable</button>
+        <button class="tab-btn" data-tab="shikayat">Send Shikayat Letter</button>
+        <button class="tab-btn" data-tab="results">Upload Results</button>
+        <button class="tab-btn" data-tab="progress">Progress Report</button>
+        <button class="tab-btn" data-tab="attendance">Attendance</button>
+      </div>
+
+      <!-- ===================== TIMETABLE ===================== -->
+      <div class="tab-panel active" id="panel-timetable">
+        <div class="admin-card">
+          <h3>Weekly Timetable</h3>
+          <table class="data-table"><thead><tr><th>Period</th><th>Time</th><th>Class</th><th>Subject</th></tr></thead><tbody id="timetableBody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ===================== SHIKAYAT ===================== -->
+      <div class="tab-panel" id="panel-shikayat">
+        <div class="admin-card">
+          <h3>Send a Shikayat Letter</h3>
+          <p class="muted small">Enter a student's ID to fetch their details, then write your complaint.</p>
+          <div class="form-grid">
+            <div class="field"><label>Student ID *</label><input id="sk-sid" placeholder="QMPS-26-7-7001" style="font-family:var(--font-mono);"></div>
+            <div class="field" style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-outline btn-block" style="border-color:var(--line); color:var(--navy-900);" id="skLookupBtn">Look up student</button></div>
+          </div>
+          <div id="sk-details" class="empty-state" style="margin-bottom:16px;">No student looked up yet.</div>
+
+          <form id="skForm" style="display:none;">
+            <div class="form-grid">
+              <div class="field"><label>Subject *</label><select id="sk-subject" required></select></div>
+              <div class="field"><label>Complaint type *</label>
+                <select id="sk-type" required>
+                  <option>Homework not done</option>
+                  <option>Absent from class</option>
+                  <option>Bad behaviour</option>
+                  <option>Late to class</option>
+                  <option>Not participating in class</option>
+                  <option>Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="field"><label>Message *</label><textarea id="sk-message" placeholder="Describe what happened" required></textarea></div>
+            <div class="form-msg" id="skMsg"></div>
+            <button type="submit" class="btn btn-primary" id="skSaveBtn">Send Shikayat Letter</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ===================== RESULTS ===================== -->
+      <div class="tab-panel" id="panel-results">
+        <div class="tabs">
+          <button class="tab-btn active" data-restab="wm">Weekly / Monthly</button>
+          <button class="tab-btn" data-restab="term">Term Result</button>
+        </div>
+
+        <div class="tab-panel active" id="restab-wm">
+          <div class="admin-card">
+            <h3>Upload Weekly / Monthly Result — Whole Class</h3>
+            <p class="muted small">Pick a class and subject you teach, then enter marks for every student in one go.</p>
+            <div class="form-grid">
+              <div class="field"><label>Class *</label><select id="wm-class" required></select></div>
+              <div class="field"><label>Subject *</label><select id="wm-subject" required></select></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label>Type *</label><select id="wm-type"><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
+              <div class="field"><label>Label *</label><input id="wm-label" placeholder="e.g. Week 3, or October" required></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label>Date *</label><input type="date" id="wm-date" required></div>
+              <div class="field"><label>Total marks (for the test) *</label><input type="number" id="wm-total" required></div>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" style="border-color:var(--line); color:var(--navy-900); margin-bottom:16px;" id="wmLoadClassBtn">Load class list</button>
+            <table class="data-table" id="wmTableWrap" style="display:none; margin-bottom:16px;">
+              <thead><tr><th>Student</th><th>Roll No</th><th>Marks Obtained</th></tr></thead>
+              <tbody id="wmTableBody"></tbody>
+            </table>
+            <p class="hint" id="wmHint" style="margin-bottom:10px;">Leave a box blank to skip a student (e.g. if absent).</p>
+            <div class="form-msg" id="wmMsg"></div>
+            <button type="button" class="btn btn-primary" id="wmSaveBtn" style="display:none;">Save Results for This Class</button>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="restab-term">
+          <div class="admin-card">
+            <h3>Upload Term Result</h3>
+            <p class="muted small">Full result card covering all subjects for a term/exam.</p>
+            <div class="form-grid">
+              <div class="field"><label>Student ID *</label><input id="tm-sid" placeholder="QMPS-26-7-7001" style="font-family:var(--font-mono);"></div>
+              <div class="field" style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-outline btn-block" style="border-color:var(--line); color:var(--navy-900);" id="tmLookupBtn">Look up student</button></div>
+            </div>
+            <div id="tm-details" class="empty-state" style="margin-bottom:16px;">No student looked up yet.</div>
+
+            <form id="tmForm" style="display:none;">
+              <div class="field"><label>Exam title *</label><input id="tm-exam" placeholder="Mid-Term 2026" required></div>
+              <div id="tmSubjectRows"></div>
+              <button type="button" class="btn btn-outline btn-sm" style="border-color:var(--line); color:var(--navy-900); margin:10px 0 16px;" id="tmAddRowBtn">+ Add subject</button>
+              <div class="field"><label>Remarks</label><textarea id="tm-remarks"></textarea></div>
+              <div class="form-msg" id="tmMsg"></div>
+              <button type="submit" class="btn btn-primary" id="tmSaveBtn">Save Term Result</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== PROGRESS REPORT ===================== -->
+      <div class="tab-panel" id="panel-progress">
+        <div class="admin-card">
+          <h3>Generate Progress Report</h3>
+          <p class="muted small">Academic, Attendance, and Discipline scores are calculated automatically from the student's results, attendance record, and shikayat letters. You just add your review.</p>
+          <div class="form-grid">
+            <div class="field"><label>Student ID *</label><input id="pr-sid" placeholder="QMPS-26-7-7001" style="font-family:var(--font-mono);"></div>
+            <div class="field" style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-outline btn-block" style="border-color:var(--line); color:var(--navy-900);" id="prLookupBtn">Look up &amp; generate</button></div>
+          </div>
+          <div id="pr-details" class="empty-state" style="margin-bottom:16px;">No student looked up yet.</div>
+
+          <form id="prForm" style="display:none;">
+            <div class="stat-row" style="grid-template-columns:repeat(3,1fr);">
+              <div class="stat-box"><b id="pr-academic-val">—</b><span>Academic (avg. result %)</span></div>
+              <div class="stat-box"><b id="pr-attendance-val">—</b><span>Attendance %</span></div>
+              <div class="stat-box"><b id="pr-discipline-val">—</b><span>Discipline (from shikayat letters)</span></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label>Report title *</label><input id="pr-title" placeholder="e.g. Term 1 Progress Report" required></div>
+              <div class="field"><label>Date *</label><input type="date" id="pr-date" required></div>
+            </div>
+            <div class="field"><label>Teacher's Review *</label><textarea id="pr-review" placeholder="Your advice, suggestions, or comments on this student's progress" required></textarea></div>
+            <div class="form-msg" id="prMsg"></div>
+            <button type="submit" class="btn btn-primary" id="prSaveBtn">Save Progress Report</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ===================== ATTENDANCE ===================== -->
+      <div class="tab-panel" id="panel-attendance">
+        <div class="admin-card" id="attNoClass" style="display:none;">
+          <h3>Attendance</h3>
+          <div class="empty-state">You aren't currently set as a Class Teacher, so you don't manage attendance for any class. Contact the admin if this should change.</div>
+        </div>
+        <div class="admin-card" id="attClassWrap">
+          <h3>Class Attendance — <span id="attClassName"></span></h3>
+          <div class="form-grid">
+            <div class="field"><label>Date</label><input type="date" id="att-date"></div>
+            <div class="field" style="display:flex; align-items:flex-end;"><button type="button" class="btn btn-outline btn-block" style="border-color:var(--line); color:var(--navy-900);" id="attLoadBtn">Load class list</button></div>
+          </div>
+          <table class="data-table" id="attTableWrap" style="display:none;">
+            <thead><tr><th>Student</th><th>Roll No</th><th>Present</th></tr></thead>
+            <tbody id="attTableBody"></tbody>
+          </table>
+          <div id="attFileWrap" style="display:none; margin-top:16px;"></div>
+          <div class="form-msg" id="attMsg"></div>
+          <button type="button" class="btn btn-primary" id="attSaveBtn" style="display:none; margin-top:16px;">Save Attendance</button>
+        </div>
       </div>
 
       <div class="admin-card">
@@ -61,16 +210,20 @@
 <script type="module">
   import { auth, db } from "./js/firebase-config.js";
   import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-  import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { collection, doc, getDoc, addDoc, setDoc, query, where, getDocs, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { esc, fmtDate, mediaFieldHTML, wireMediaField, resolveMedia, gradeFor } from "./js/media-utils.js";
   import { renderNews } from "./js/content.js";
+
+  // Default date fields to today
+  ["wm-date", "pr-date", "att-date"].forEach((id) => { document.getElementById(id).value = new Date().toISOString().slice(0, 10); });
 
   const loginView = document.getElementById("loginView");
   const portalView = document.getElementById("portalView");
   const msg = document.getElementById("loginMsg");
   const form = document.getElementById("teacherLoginForm");
   const loginBtn = document.getElementById("loginBtn");
-
-  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  let teacherProfile = null;
+  let teacherId = null;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -81,7 +234,6 @@
     } catch (err) {
       msg.textContent = "Email or password is incorrect.";
       msg.classList.add("show", "error");
-    } finally {
       loginBtn.disabled = false; loginBtn.textContent = "Log In";
     }
   });
@@ -103,30 +255,402 @@
   document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth));
 
   onAuthStateChanged(auth, async (user) => {
-    if (!user) { loginView.style.display = "block"; portalView.style.display = "none"; return; }
-    loginView.style.display = "none";
-    portalView.style.display = "block";
+    if (!user) { loginView.style.display = "block"; portalView.style.display = "none"; loginBtn.disabled = false; loginBtn.textContent = "Log In"; return; }
 
+    // Security check: this Firebase Auth session must belong to an
+    // actual teacher record, or we sign them straight back out. This
+    // stops the admin's own session (or anyone else's) from opening
+    // the teacher portal just because *some* account is logged in.
     try {
       const q = query(collection(db, "teachers"), where("email", "==", user.email));
       const snap = await getDocs(q);
-      if (!snap.empty) {
-        const t = snap.docs[0].data();
-        document.getElementById("welcomeName").textContent = "Welcome, " + t.name;
-        document.getElementById("welcomeMeta").textContent = `Subject: ${t.subject || "—"}`;
-        const classes = t.assignedClasses || [];
-        document.getElementById("classesArea").innerHTML = classes.length
-          ? `<div class="card-grid">` + classes.map(c => `<div class="feature-card"><h3>${esc(c)}</h3></div>`).join("") + `</div>`
-          : `<div class="empty-state">No classes have been assigned to you yet. Contact the admin.</div>`;
-      } else {
-        document.getElementById("welcomeName").textContent = "Welcome";
-        document.getElementById("classesArea").innerHTML = `<div class="empty-state">Your teacher profile hasn't been set up yet. Contact the admin.</div>`;
+      if (snap.empty) {
+        await signOut(auth);
+        loginView.style.display = "block"; portalView.style.display = "none";
+        msg.textContent = "This account isn't registered as a teacher. Contact the admin.";
+        msg.className = "form-msg show error";
+        loginBtn.disabled = false; loginBtn.textContent = "Log In";
+        return;
       }
+      teacherId = snap.docs[0].id;
+      teacherProfile = snap.docs[0].data();
     } catch {
-      document.getElementById("classesArea").innerHTML = `<div class="empty-state">Could not load your classes right now.</div>`;
+      await signOut(auth);
+      return;
     }
 
+    loginView.style.display = "none";
+    portalView.style.display = "block";
+    document.getElementById("welcomeName").textContent = "Welcome, " + teacherProfile.name;
+    document.getElementById("welcomeMeta").textContent = teacherProfile.classTeacherOf ? `Class Teacher of ${teacherProfile.classTeacherOf}` : "";
+
+    renderTimetable();
+    setupSubjectDropdowns();
+    setupResultClassDropdown();
+    document.getElementById("attClassName").textContent = teacherProfile.classTeacherOf || "";
+    if (teacherProfile.classTeacherOf) {
+      document.getElementById("attNoClass").style.display = "none";
+      document.getElementById("attClassWrap").style.display = "block";
+    } else {
+      document.getElementById("attNoClass").style.display = "block";
+      document.getElementById("attClassWrap").style.display = "none";
+    }
     renderNews("#portal-news", 3);
+  });
+
+  /* ---------------- Tabs ---------------- */
+  document.getElementById("teacherTabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab-btn[data-tab]");
+    if (!btn) return;
+    document.querySelectorAll("#teacherTabs .tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll("#portalView > .tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+  document.querySelector("#panel-results .tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab-btn[data-restab]");
+    if (!btn) return;
+    document.querySelectorAll("#panel-results .tabs .tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll("#panel-results > .tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("restab-" + btn.dataset.restab).classList.add("active");
+  });
+
+  /* ---------------- Timetable ---------------- */
+  async function renderTimetable() {
+    const body = document.getElementById("timetableBody");
+    const tt = teacherProfile.timetable || [];
+    if (!tt.length) { body.innerHTML = `<tr><td colspan="4">No timetable set yet — ask the admin to add one.</td></tr>`; return; }
+
+    let periodTimes = [];
+    try {
+      const s = await getDoc(doc(db, "siteSettings", "main"));
+      periodTimes = s.exists() ? (s.data().periodTimes || []) : [];
+    } catch { /* fine, just show without times */ }
+
+    body.innerHTML = tt.map((p) => {
+      const pt = periodTimes.find((t) => t.period === p.period);
+      const timeLabel = pt && pt.start && pt.end ? `${pt.start} – ${pt.end}` : "—";
+      return `<tr><td style="font-family:var(--font-mono); font-weight:700;">P${p.period}</td>
+      <td style="font-family:var(--font-mono);">${esc(timeLabel)}</td>
+      <td>${esc(p.class || "—")}</td><td>${esc(p.subject || "—")}</td></tr>`;
+    }).join("");
+  }
+
+  function subjectsForClass(className) {
+    const tt = teacherProfile.timetable || [];
+    const forClass = [...new Set(tt.filter((p) => p.class === className && p.subject).map((p) => p.subject))];
+    if (forClass.length) return forClass;
+    return [...new Set(tt.filter((p) => p.subject).map((p) => p.subject))];
+  }
+  function setupSubjectDropdowns() {
+    const allSubjects = [...new Set((teacherProfile.timetable || []).filter((p) => p.subject).map((p) => p.subject))];
+    document.getElementById("sk-subject").innerHTML = allSubjects.map((s) => `<option>${esc(s)}</option>`).join("") || `<option value="">General</option>`;
+  }
+
+  /* ---------------- Generic student lookup ---------------- */
+  async function lookupStudent(sidInputId, detailsElId, onFound) {
+    const sid = document.getElementById(sidInputId).value.trim().toUpperCase();
+    const detailsEl = document.getElementById(detailsElId);
+    if (!sid) { detailsEl.textContent = "Enter a Student ID first."; return; }
+    const s = await getDoc(doc(db, "students", sid));
+    if (!s.exists()) {
+      detailsEl.textContent = "No student found with that ID.";
+      detailsEl.className = "empty-state";
+      return;
+    }
+    const student = s.data();
+    detailsEl.className = "form-msg show success";
+    detailsEl.innerHTML = `<strong>${esc(student.name)}</strong> &middot; Father: ${esc(student.fatherName)} &middot; Class: ${esc(student.class)} &middot; Roll No: ${esc(student.rollNo)}`;
+    await onFound(sid, student);
+  }
+
+  /* ---------------- Shikayat ---------------- */
+  let skStudent = null, skSid = null;
+  document.getElementById("skLookupBtn").addEventListener("click", () => {
+    lookupStudent("sk-sid", "sk-details", (sid, student) => {
+      skSid = sid; skStudent = student;
+      document.getElementById("skForm").style.display = "block";
+      const subjOptions = subjectsForClass(student.class);
+      document.getElementById("sk-subject").innerHTML = subjOptions.map((s) => `<option>${esc(s)}</option>`).join("") || `<option value="General">General</option>`;
+    });
+  });
+  document.getElementById("skForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("skSaveBtn");
+    const msgEl = document.getElementById("skMsg");
+    btn.disabled = true; btn.textContent = "Sending...";
+    try {
+      await addDoc(collection(db, "complaints"), {
+        studentId: skSid, studentName: skStudent.name, fatherName: skStudent.fatherName,
+        class: skStudent.class, rollNo: skStudent.rollNo,
+        subject: document.getElementById("sk-subject").value,
+        complaintType: document.getElementById("sk-type").value,
+        message: document.getElementById("sk-message").value,
+        teacherName: teacherProfile.name, teacherEmail: teacherProfile.email,
+        date: serverTimestamp()
+      });
+      msgEl.textContent = "Shikayat letter sent.";
+      msgEl.className = "form-msg show success";
+      document.getElementById("skForm").reset();
+    } catch {
+      msgEl.textContent = "Could not send. Please try again.";
+      msgEl.className = "form-msg show error";
+    } finally {
+      btn.disabled = false; btn.textContent = "Send Shikayat Letter";
+    }
+  });
+
+  function setupResultClassDropdown() {
+    const classes = [...new Set((teacherProfile.timetable || []).filter((p) => p.class).map((p) => p.class))];
+    const sel = document.getElementById("wm-class");
+    sel.innerHTML = classes.map((c) => `<option>${esc(c)}</option>`).join("") || `<option value="">— No classes assigned —</option>`;
+    updateWmSubjects();
+  }
+  function updateWmSubjects() {
+    const cls = document.getElementById("wm-class").value;
+    const subjOptions = subjectsForClass(cls);
+    document.getElementById("wm-subject").innerHTML = subjOptions.map((s) => `<option>${esc(s)}</option>`).join("") || `<option value="General">General</option>`;
+  }
+  document.getElementById("wm-class").addEventListener("change", updateWmSubjects);
+
+  document.getElementById("wmLoadClassBtn").addEventListener("click", async () => {
+    const cls = document.getElementById("wm-class").value;
+    const msgEl = document.getElementById("wmMsg");
+    msgEl.className = "form-msg";
+    if (!cls) { msgEl.textContent = "Select a class first."; msgEl.className = "form-msg show error"; return; }
+    const snap = await getDocs(query(collection(db, "students"), where("class", "==", cls)));
+    if (snap.empty) { msgEl.textContent = "No students found in this class yet."; msgEl.className = "form-msg show error"; return; }
+    const body = document.getElementById("wmTableBody");
+    body.innerHTML = snap.docs.map((d) => {
+      const s = d.data();
+      return `<tr data-sid="${d.id}"><td>${esc(s.name)}</td><td style="font-family:var(--font-mono);">${esc(s.rollNo)}</td>
+        <td><input type="number" class="wm-marks-input" data-sid="${d.id}" data-name="${esc(s.name)}" data-father="${esc(s.fatherName)}" style="max-width:120px;"></td></tr>`;
+    }).join("");
+    document.getElementById("wmTableWrap").style.display = "table";
+    document.getElementById("wmSaveBtn").style.display = "inline-flex";
+  });
+
+  document.getElementById("wmSaveBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("wmSaveBtn");
+    const msgEl = document.getElementById("wmMsg");
+    const cls = document.getElementById("wm-class").value;
+    const subject = document.getElementById("wm-subject").value;
+    const type = document.getElementById("wm-type").value;
+    const label = document.getElementById("wm-label").value;
+    const dateVal = document.getElementById("wm-date").value;
+    const total = Number(document.getElementById("wm-total").value) || 0;
+    if (!label || !dateVal || !total) { msgEl.textContent = "Fill in Label, Date, and Total marks first."; msgEl.className = "form-msg show error"; return; }
+
+    const inputs = Array.from(document.querySelectorAll(".wm-marks-input")).filter((i) => i.value !== "");
+    if (!inputs.length) { msgEl.textContent = "Enter at least one student's marks."; msgEl.className = "form-msg show error"; return; }
+
+    btn.disabled = true; btn.textContent = "Saving...";
+    try {
+      for (const input of inputs) {
+        const obtained = Number(input.value) || 0;
+        const percentage = total ? Math.round((obtained / total) * 1000) / 10 : 0;
+        await addDoc(collection(db, "results"), {
+          type, studentId: input.dataset.sid, studentName: input.dataset.name, fatherName: input.dataset.father, class: cls,
+          subject, label, marksTotal: total, marksObtained: obtained, percentage, grade: gradeFor(percentage),
+          teacherName: teacherProfile.name, teacherEmail: teacherProfile.email,
+          date: Timestamp.fromDate(new Date(dateVal))
+        });
+      }
+      msgEl.textContent = `Saved results for ${inputs.length} student(s).`;
+      msgEl.className = "form-msg show success";
+      document.querySelectorAll(".wm-marks-input").forEach((i) => { i.value = ""; });
+    } catch {
+      msgEl.textContent = "Could not save some results. Please try again.";
+      msgEl.className = "form-msg show error";
+    } finally {
+      btn.disabled = false; btn.textContent = "Save Results for This Class";
+    }
+  });
+
+  /* ---------------- Term result ---------------- */
+  let tmStudent = null, tmSid = null;
+  const tmRowsEl = document.getElementById("tmSubjectRows");
+  function addTmRow() {
+    const row = document.createElement("div");
+    row.className = "form-grid";
+    row.style.marginBottom = "8px";
+    row.innerHTML = `
+      <div class="field mb-0"><input placeholder="Subject name" class="tm-subj-name"></div>
+      <div class="field mb-0" style="display:flex; gap:8px;">
+        <input placeholder="Total marks" type="number" class="tm-subj-total" style="width:50%;">
+        <input placeholder="Obtained" type="number" class="tm-subj-obtained" style="width:50%;">
+      </div>`;
+    tmRowsEl.appendChild(row);
+  }
+  document.getElementById("tmAddRowBtn").addEventListener("click", addTmRow);
+  document.getElementById("tmLookupBtn").addEventListener("click", () => {
+    lookupStudent("tm-sid", "tm-details", (sid, student) => {
+      tmSid = sid; tmStudent = student;
+      document.getElementById("tmForm").style.display = "block";
+      if (!tmRowsEl.children.length) { addTmRow(); addTmRow(); addTmRow(); }
+    });
+  });
+  document.getElementById("tmForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("tmSaveBtn");
+    const msgEl = document.getElementById("tmMsg");
+    btn.disabled = true; btn.textContent = "Saving...";
+    const subjects = Array.from(tmRowsEl.children).map((row) => ({
+      name: row.querySelector(".tm-subj-name").value,
+      marks: Number(row.querySelector(".tm-subj-total").value) || 0,
+      obtained: Number(row.querySelector(".tm-subj-obtained").value) || 0
+    })).filter((s) => s.name);
+    const totalMarks = subjects.reduce((sum, s) => sum + s.marks, 0);
+    const obtainedMarks = subjects.reduce((sum, s) => sum + s.obtained, 0);
+    const percentage = totalMarks ? Math.round((obtainedMarks / totalMarks) * 1000) / 10 : 0;
+    try {
+      await addDoc(collection(db, "results"), {
+        type: "term",
+        studentId: tmSid, studentName: tmStudent.name, fatherName: tmStudent.fatherName, class: tmStudent.class,
+        examTitle: document.getElementById("tm-exam").value,
+        subjects, total: `${obtainedMarks} / ${totalMarks}`, percentage, grade: gradeFor(percentage),
+        remarks: document.getElementById("tm-remarks").value,
+        teacherName: teacherProfile.name, teacherEmail: teacherProfile.email,
+        date: serverTimestamp()
+      });
+      msgEl.textContent = "Term result saved.";
+      msgEl.className = "form-msg show success";
+      document.getElementById("tmForm").reset();
+      tmRowsEl.innerHTML = ""; addTmRow(); addTmRow(); addTmRow();
+    } catch {
+      msgEl.textContent = "Could not save. Please try again.";
+      msgEl.className = "form-msg show error";
+    } finally {
+      btn.disabled = false; btn.textContent = "Save Term Result";
+    }
+  });
+
+  /* ---------------- Progress report (auto-generated) ---------------- */
+  let prStudent = null, prSid = null, prMetrics = null;
+
+  async function computeMetrics(sid, studentClass) {
+    // Academic: average percentage across all of this student's results
+    const resSnap = await getDocs(query(collection(db, "results"), where("studentId", "==", sid)));
+    const percentages = resSnap.docs.map((d) => d.data().percentage).filter((n) => typeof n === "number");
+    const academic = percentages.length ? Math.round(percentages.reduce((a, b) => a + b, 0) / percentages.length) : null;
+
+    // Attendance: % of recorded class days this student was marked present
+    const attSnap = await getDocs(query(collection(db, "attendance"), where("class", "==", studentClass)));
+    let present = 0, recorded = 0;
+    attSnap.docs.forEach((d) => {
+      const records = d.data().records || {};
+      if (sid in records) { recorded++; if (records[sid] === "present") present++; }
+    });
+    const attendance = recorded ? Math.round((present / recorded) * 100) : null;
+
+    // Discipline: fewer shikayat letters = higher score
+    const compSnap = await getDocs(query(collection(db, "complaints"), where("studentId", "==", sid)));
+    const complaintCount = compSnap.size;
+    const discipline = Math.max(0, 100 - complaintCount * 15);
+
+    return { academic, attendance, discipline, complaintCount };
+  }
+
+  document.getElementById("prLookupBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("prLookupBtn");
+    btn.disabled = true; btn.textContent = "Generating...";
+    try {
+      await lookupStudent("pr-sid", "pr-details", async (sid, student) => {
+        prSid = sid; prStudent = student;
+        prMetrics = await computeMetrics(sid, student.class);
+        document.getElementById("pr-academic-val").textContent = prMetrics.academic === null ? "No data" : prMetrics.academic + "%";
+        document.getElementById("pr-attendance-val").textContent = prMetrics.attendance === null ? "No data" : prMetrics.attendance + "%";
+        document.getElementById("pr-discipline-val").textContent = prMetrics.discipline + "%";
+        document.getElementById("prForm").style.display = "block";
+      });
+    } finally {
+      btn.disabled = false; btn.textContent = "Look up & generate";
+    }
+  });
+
+  document.getElementById("prForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("prSaveBtn");
+    const msgEl = document.getElementById("prMsg");
+    btn.disabled = true; btn.textContent = "Saving...";
+    try {
+      await addDoc(collection(db, "progressReports"), {
+        studentId: prSid, studentName: prStudent.name, class: prStudent.class,
+        title: document.getElementById("pr-title").value,
+        metrics: {
+          academic: prMetrics.academic ?? 0,
+          attendance: prMetrics.attendance ?? 0,
+          discipline: prMetrics.discipline
+        },
+        teacherReview: document.getElementById("pr-review").value,
+        teacherName: teacherProfile.name, teacherEmail: teacherProfile.email,
+        date: Timestamp.fromDate(new Date(document.getElementById("pr-date").value))
+      });
+      msgEl.textContent = "Progress report saved.";
+      msgEl.className = "form-msg show success";
+      document.getElementById("prForm").reset();
+      document.getElementById("prForm").style.display = "none";
+      document.getElementById("pr-details").className = "empty-state";
+      document.getElementById("pr-details").textContent = "No student looked up yet.";
+    } catch {
+      msgEl.textContent = "Could not save. Please try again.";
+      msgEl.className = "form-msg show error";
+    } finally {
+      btn.disabled = false; btn.textContent = "Save Progress Report";
+    }
+  });
+
+  /* ---------------- Attendance (class teacher only) ---------------- */
+  document.getElementById("attFileWrap").innerHTML = mediaFieldHTML("att-file", "Attach attendance sheet (optional)", "image/*,application/pdf,.xlsx,.xls,.csv");
+  wireMediaField("att-file");
+
+  document.getElementById("attLoadBtn").addEventListener("click", async () => {
+    const cls = teacherProfile.classTeacherOf;
+    const date = document.getElementById("att-date").value;
+    const msgEl = document.getElementById("attMsg");
+    msgEl.className = "form-msg";
+    const snap = await getDocs(query(collection(db, "students"), where("class", "==", cls)));
+    if (snap.empty) { msgEl.textContent = "No students found in this class yet."; msgEl.className = "form-msg show error"; return; }
+
+    const existingSnap = await getDoc(doc(db, "attendance", `${cls.replace(/\s+/g, "_")}_${date}`));
+    const existingRecords = existingSnap.exists() ? existingSnap.data().records || {} : {};
+
+    const body = document.getElementById("attTableBody");
+    body.innerHTML = snap.docs.map((d) => {
+      const s = d.data();
+      const present = existingRecords[d.id] !== "absent";
+      return `<tr><td>${esc(s.name)}</td><td style="font-family:var(--font-mono);">${esc(s.rollNo)}</td>
+        <td><input type="checkbox" data-att-sid="${d.id}" ${present ? "checked" : ""}></td></tr>`;
+    }).join("");
+    document.getElementById("attTableWrap").style.display = "table";
+    document.getElementById("attFileWrap").style.display = "block";
+    document.getElementById("attSaveBtn").style.display = "inline-flex";
+  });
+
+  document.getElementById("attSaveBtn").addEventListener("click", async () => {
+    const cls = teacherProfile.classTeacherOf;
+    const date = document.getElementById("att-date").value;
+    const msgEl = document.getElementById("attMsg");
+    const btn = document.getElementById("attSaveBtn");
+    const records = {};
+    document.querySelectorAll("[data-att-sid]").forEach((box) => {
+      records[box.dataset.attSid] = box.checked ? "present" : "absent";
+    });
+    btn.disabled = true; btn.textContent = "Saving...";
+    try {
+      const attendanceFileUrl = await resolveMedia("att-file", "");
+      await setDoc(doc(db, "attendance", `${cls.replace(/\s+/g, "_")}_${date}`), {
+        class: cls, date, records, attendanceFileUrl, markedBy: teacherProfile.name, updatedAt: serverTimestamp()
+      });
+      msgEl.textContent = "Attendance saved for " + date + ".";
+      msgEl.className = "form-msg show success";
+    } catch {
+      msgEl.textContent = "Could not save attendance. Please try again.";
+      msgEl.className = "form-msg show error";
+    } finally {
+      btn.disabled = false; btn.textContent = "Save Attendance";
+    }
   });
 </script>
 </body>
