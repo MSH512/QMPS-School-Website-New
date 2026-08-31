@@ -295,7 +295,7 @@ document.getElementById("addAchBtn").addEventListener("click", () => {
       </div>
       <div class="form-grid">
         <div class="field"><label>Name *</label><input id="f-person" placeholder="Full name" required></div>
-        <div class="field"><label>Role *</label><select id="f-role"><option>Student</option><option>Teacher</option><option>Principal</option></select></div>
+        <div class="field"><label>Role *</label><select id="f-role"><option>Student</option><option>Teacher</option><option>Principal</option><option>Alumnus</option></select></div>
       </div>
       <div class="field"><label>Date *</label><input type="date" id="f-date" value="${new Date().toISOString().slice(0, 10)}" required></div>
       <div class="field"><label>Details *</label><textarea id="f-details" placeholder="What did they achieve?" required></textarea></div>
