@@ -357,3 +357,31 @@ textarea{min-height:110px; resize:vertical;}
 .loader{display:flex; align-items:center; gap:10px; color:var(--ink-400); font-size:.88rem; padding:20px 0;}
 .spinner{width:16px; height:16px; border-radius:50%; border:2px solid var(--line); border-top-color:var(--gold-500); animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+
+
+
+/* ---------- Student ID Card ---------- */
+.id-card{
+  width:100%; max-width:400px; aspect-ratio:1.586/1; border-radius:16px; position:relative; overflow:hidden;
+  background:linear-gradient(150deg, var(--navy-900), var(--navy-700));
+  color:#fff; padding:22px 24px; box-shadow:var(--shadow-md); border:1px solid rgba(255,255,255,.1);
+  font-family:var(--font-body);
+}
+.id-card::after{
+  content:""; position:absolute; right:-40px; bottom:-40px; width:160px; height:160px; border-radius:50%;
+  background:radial-gradient(circle, rgba(217,164,65,.25), transparent 70%);
+}
+.id-card-head{display:flex; align-items:center; gap:10px; margin-bottom:14px; position:relative; z-index:2;}
+.id-card-head .brand-logo{width:34px; height:34px; font-size:.85rem; border-width:1px;}
+.id-card-head b{font-family:var(--font-display); font-size:.85rem; line-height:1.2; display:block;}
+.id-card-head span{font-size:.65rem; color:var(--slate-300);}
+.id-card-body{display:flex; gap:16px; position:relative; z-index:2;}
+.id-card-photo{
+  width:86px; height:104px; border-radius:8px; object-fit:cover; background:rgba(255,255,255,.08);
+  border:2px solid var(--gold-400); flex:none;
+}
+.id-card-fields{font-size:.82rem; line-height:1.7;}
+.id-card-fields b{color:var(--gold-300); font-family:var(--font-mono); font-weight:600; font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; display:block;}
+.id-card-fields .val{color:#fff; margin-bottom:6px; display:block; font-size:.92rem; font-weight:600;}
+@media (max-width:420px){ .id-card{padding:16px 18px;} .id-card-photo{width:70px; height:86px;} }
