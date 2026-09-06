@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Dashboard | Quaid-e-Millat Public School Ameerabad</title>
 <link rel="stylesheet" href="css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -44,12 +45,13 @@
       <button data-panel="students">Students</button>
       <button data-panel="teachers">Teachers</button>
       <button data-panel="results">Results</button>
-      <button data-panel="complaints">Complaints Box</button>
+      <button data-panel="complaints">Shikayat Letters</button>
       <button data-panel="progress">Progress Reports</button>
       <button data-panel="admissions">Admissions</button>
       <button data-panel="jobs">Job Applications</button>
       <button data-panel="messages">Contact Messages</button>
       <button data-panel="settings">Site Settings</button>
+      <button data-panel="samples">Samples &amp; Templates</button>
     </nav>
   </aside>
 
@@ -98,7 +100,26 @@
     </section>
 
     <section class="admin-panel" id="panel-results">
-      <p class="muted small" style="margin-bottom:16px;">Results are uploaded by teachers from the Teacher Portal (Weekly, Monthly, and Term results). This panel is for viewing and removing entries only.</p>
+      <div class="admin-card">
+        <h3>Upload Class Result (Excel/CSV)</h3>
+        <p class="muted small">Upload a spreadsheet for a whole class at once. Each student only ever sees their own row — matched automatically by Student ID (or by Name if ID is left blank).</p>
+        <p class="hint" style="margin-bottom:14px;">Format: one column called "Student ID" (or "Name"), then one column per subject with marks written as <strong>obtained/total</strong> — e.g. <code>42/50</code>. An optional "Remarks" column is also supported.</p>
+        <div class="form-grid">
+          <div class="field"><label>Class *</label><select id="excel-class"></select></div>
+          <div class="field"><label>Result type</label><select id="excel-type"><option value="term">Term</option><option value="monthly">Monthly</option><option value="weekly">Weekly</option></select></div>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label>Exam / Test title *</label><input id="excel-exam" placeholder="e.g. Mid-Term 2026"></div>
+          <div class="field"><label>Date *</label><input type="date" id="excel-date"></div>
+        </div>
+        <div class="field"><label>Spreadsheet file (.xlsx, .xls, or .csv) *</label><input type="file" id="excel-file" accept=".xlsx,.xls,.csv"></div>
+        <button type="button" class="btn btn-outline btn-sm" style="border-color:var(--line); color:var(--navy-900); margin-bottom:14px;" id="processExcelBtn">Process File</button>
+        <div id="excelPreview"></div>
+        <div class="form-msg" id="excelMsg"></div>
+        <button type="button" class="btn btn-primary" id="confirmExcelBtn" style="display:none;">Confirm &amp; Save Results</button>
+      </div>
+
+      <p class="muted small" style="margin-bottom:16px;">Results uploaded here or by teachers are listed below. This table is for viewing and removing entries only.</p>
       <table class="data-table"><thead><tr><th>Student ID</th><th>Result</th><th>%</th><th>Grade</th><th></th></tr></thead><tbody id="resultsTable"></tbody></table>
     </section>
 
@@ -144,11 +165,15 @@
       </div>
       <div class="admin-card">
         <h3>Period Timings</h3>
-        <p class="muted small">Set once here — every teacher's timetable automatically shows these start/end times next to their periods.</p>
+        <p class="muted small">Set once here — every teacher's timetable automatically shows these start/end times next to their periods. There's a break after Period 4.</p>
         <table class="data-table" style="margin-bottom:16px;">
           <thead><tr><th>Period</th><th>Start Time</th><th>End Time</th></tr></thead>
           <tbody id="periodTimesBody"></tbody>
         </table>
+        <div class="form-grid">
+          <div class="field"><label>Break Start</label><input type="time" id="pt-break-start"></div>
+          <div class="field"><label>Break End</label><input type="time" id="pt-break-end"></div>
+        </div>
         <button class="btn btn-primary btn-sm" id="savePeriodTimesBtn">Save Period Timings</button>
       </div>
       <div class="admin-card">
@@ -167,6 +192,47 @@
           <div class="field"><label>Google Maps embed URL</label><input id="set-map"></div>
         </div>
         <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+      </div>
+    </section>
+
+    <section class="admin-panel" id="panel-samples">
+      <div class="admin-card">
+        <h3>Result Upload Sample</h3>
+        <p class="muted small">Use this exact format when bulk-uploading a class result (Results panel). One column called "Student ID" (or "Name"), then one column per subject written as <strong>obtained/total</strong>, and an optional "Remarks" column.</p>
+        <table class="data-table" style="margin-bottom:16px;">
+          <thead><tr><th>Student ID</th><th>Name</th><th>English</th><th>Urdu</th><th>Mathematics</th><th>Science</th><th>Social Studies</th><th>Remarks</th></tr></thead>
+          <tbody>
+            <tr><td style="font-family:var(--font-mono);">QMPS-26-6-6001</td><td>Ali Hassan</td><td>42/50</td><td>45/50</td><td>88/100</td><td>79/100</td><td>38/50</td><td>Good progress this term</td></tr>
+            <tr><td style="font-family:var(--font-mono);">QMPS-26-6-6002</td><td>Zainab Kareem</td><td>48/50</td><td>40/50</td><td>95/100</td><td>85/100</td><td>44/50</td><td>Excellent performance</td></tr>
+            <tr><td style="font-family:var(--font-mono);">QMPS-26-6-6003</td><td>Bilal Ahmed</td><td>30/50</td><td>35/50</td><td>60/100</td><td>55/100</td><td>28/50</td><td>Needs improvement in Math</td></tr>
+          </tbody>
+        </table>
+        <button type="button" class="btn btn-dark btn-sm" id="downloadResultSampleBtn">Download Sample CSV</button>
+      </div>
+
+      <div class="admin-card">
+        <h3>Attendance Sample — Paste Text</h3>
+        <p class="muted small">In the Teacher Portal's Attendance tab, "Quick-fill" → "Paste text": one line per student, <strong>Roll No, Status</strong>. Status can be Present/Absent or just P/A.</p>
+        <pre style="background:var(--paper-100); padding:14px 16px; border-radius:var(--radius-sm); font-family:var(--font-mono); font-size:.85rem; overflow-x:auto;">7001, Present
+7002, Absent
+7003, P
+7004, A
+7005, Present</pre>
+        <button type="button" class="btn btn-dark btn-sm" id="downloadAttPasteSampleBtn">Download Sample .txt</button>
+      </div>
+
+      <div class="admin-card">
+        <h3>Attendance Sample — Upload File</h3>
+        <p class="muted small">In the same Attendance tab, "Quick-fill" → "Upload file": a spreadsheet with a "Roll No" column and a "Status" column.</p>
+        <table class="data-table" style="margin-bottom:16px;">
+          <thead><tr><th>Roll No</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td style="font-family:var(--font-mono);">7001</td><td>Present</td></tr>
+            <tr><td style="font-family:var(--font-mono);">7002</td><td>Absent</td></tr>
+            <tr><td style="font-family:var(--font-mono);">7003</td><td>Present</td></tr>
+          </tbody>
+        </table>
+        <button type="button" class="btn btn-dark btn-sm" id="downloadAttFileSampleBtn">Download Sample CSV</button>
       </div>
     </section>
   </main>
