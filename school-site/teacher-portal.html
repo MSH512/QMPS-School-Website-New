@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Teacher Portal | Quaid-e-Millat Public School Ameerabad</title>
 <link rel="stylesheet" href="css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="site-header"></div>
@@ -45,7 +46,7 @@
 
       <div class="tabs" id="teacherTabs">
         <button class="tab-btn active" data-tab="timetable">My Timetable</button>
-        <button class="tab-btn" data-tab="shikayat">Send Complaints</button>
+        <button class="tab-btn" data-tab="shikayat">Send Shikayat Letter</button>
         <button class="tab-btn" data-tab="results">Upload Results</button>
         <button class="tab-btn" data-tab="progress">Progress Report</button>
         <button class="tab-btn" data-tab="attendance">Attendance</button>
@@ -191,7 +192,31 @@
             <thead><tr><th>Student</th><th>Roll No</th><th>Present</th></tr></thead>
             <tbody id="attTableBody"></tbody>
           </table>
-          <div id="attFileWrap" style="display:none; margin-top:16px;"></div>
+
+          <div id="attQuickFillWrap" style="display:none; margin-top:20px;">
+            <h3 style="font-size:1rem;">Quick-fill from paste, file, or photo (optional)</h3>
+            <p class="muted small">Instead of clicking each box, paste a list, upload a sheet, or attach a photo of the register — one line/row per student as <strong>Roll No, Status</strong> (Status: Present/Absent or P/A). Paste/file automatically tick the checkboxes above; a photo is just kept as a reference and doesn't tick anything automatically. Either way, you still click "Save Attendance" after.</p>
+            <div class="tabs" style="margin-bottom:14px;">
+              <button type="button" class="tab-btn active" data-attfill="paste">Paste text</button>
+              <button type="button" class="tab-btn" data-attfill="file">Upload file</button>
+              <button type="button" class="tab-btn" data-attfill="photo">Upload photo</button>
+            </div>
+            <div class="tab-panel active" id="attfill-paste">
+              <div class="field"><textarea id="att-paste-text" placeholder="7001, Present&#10;7002, Absent&#10;7003, P&#10;7004, A"></textarea></div>
+              <button type="button" class="btn btn-outline btn-sm" style="border-color:var(--line); color:var(--navy-900);" id="attApplyPasteBtn">Apply to checkboxes</button>
+            </div>
+            <div class="tab-panel" id="attfill-file">
+              <div class="field"><label>Excel/CSV file</label><input type="file" id="att-import-file" accept=".xlsx,.xls,.csv"></div>
+              <p class="hint" style="margin-bottom:10px;">Columns: "Roll No" (or "Student ID") and "Status".</p>
+              <button type="button" class="btn btn-outline btn-sm" style="border-color:var(--line); color:var(--navy-900);" id="attApplyFileBtn">Apply to checkboxes</button>
+            </div>
+            <div class="tab-panel" id="attfill-photo">
+              <p class="hint" style="margin-bottom:10px;">This just attaches a photo (e.g. of the physical attendance register) to today's record for reference — it doesn't read or tick anything automatically.</p>
+              <div id="attFileWrap"></div>
+            </div>
+            <div class="form-msg" id="attFillMsg"></div>
+          </div>
+
           <div class="form-msg" id="attMsg"></div>
           <button type="button" class="btn btn-primary" id="attSaveBtn" style="display:none; margin-top:16px;">Save Attendance</button>
         </div>
@@ -322,18 +347,29 @@
     const tt = teacherProfile.timetable || [];
     if (!tt.length) { body.innerHTML = `<tr><td colspan="4">No timetable set yet — ask the admin to add one.</td></tr>`; return; }
 
-    let periodTimes = [];
+    let periodTimes = [], breakStart = "", breakEnd = "", breakAfterPeriod = 4;
     try {
       const s = await getDoc(doc(db, "siteSettings", "main"));
-      periodTimes = s.exists() ? (s.data().periodTimes || []) : [];
+      if (s.exists()) {
+        const data = s.data();
+        periodTimes = data.periodTimes || [];
+        breakStart = data.breakStart || "";
+        breakEnd = data.breakEnd || "";
+        breakAfterPeriod = data.breakAfterPeriod || 4;
+      }
     } catch { /* fine, just show without times */ }
 
+    const breakLabel = breakStart && breakEnd ? `${breakStart} – ${breakEnd}` : "";
     body.innerHTML = tt.map((p) => {
       const pt = periodTimes.find((t) => t.period === p.period);
       const timeLabel = pt && pt.start && pt.end ? `${pt.start} – ${pt.end}` : "—";
-      return `<tr><td style="font-family:var(--font-mono); font-weight:700;">P${p.period}</td>
+      const row = `<tr><td style="font-family:var(--font-mono); font-weight:700;">P${p.period}</td>
       <td style="font-family:var(--font-mono);">${esc(timeLabel)}</td>
       <td>${esc(p.class || "—")}</td><td>${esc(p.subject || "—")}</td></tr>`;
+      const breakRow = p.period === breakAfterPeriod
+        ? `<tr style="background:var(--paper-100);"><td colspan="4" style="text-align:center; font-weight:700; color:var(--gold-500);">— Break${breakLabel ? " (" + esc(breakLabel) + ")" : ""} —</td></tr>`
+        : "";
+      return row + breakRow;
     }).join("");
   }
 
@@ -605,6 +641,8 @@
   document.getElementById("attFileWrap").innerHTML = mediaFieldHTML("att-file", "Attach attendance sheet (optional)", "image/*,application/pdf,.xlsx,.xls,.csv");
   wireMediaField("att-file");
 
+  let attStudentsByRoll = {}, attStudentsById = {};
+
   document.getElementById("attLoadBtn").addEventListener("click", async () => {
     const cls = teacherProfile.classTeacherOf;
     const date = document.getElementById("att-date").value;
@@ -616,16 +654,75 @@
     const existingSnap = await getDoc(doc(db, "attendance", `${cls.replace(/\s+/g, "_")}_${date}`));
     const existingRecords = existingSnap.exists() ? existingSnap.data().records || {} : {};
 
+    attStudentsByRoll = {}; attStudentsById = {};
     const body = document.getElementById("attTableBody");
     body.innerHTML = snap.docs.map((d) => {
       const s = d.data();
+      attStudentsByRoll[String(s.rollNo || "").trim().toUpperCase()] = d.id;
+      attStudentsById[d.id.toUpperCase()] = d.id;
       const present = existingRecords[d.id] !== "absent";
       return `<tr><td>${esc(s.name)}</td><td style="font-family:var(--font-mono);">${esc(s.rollNo)}</td>
         <td><input type="checkbox" data-att-sid="${d.id}" ${present ? "checked" : ""}></td></tr>`;
     }).join("");
     document.getElementById("attTableWrap").style.display = "table";
-    document.getElementById("attFileWrap").style.display = "block";
+    document.getElementById("attQuickFillWrap").style.display = "block";
     document.getElementById("attSaveBtn").style.display = "inline-flex";
+  });
+
+  document.querySelector("#attQuickFillWrap .tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab-btn[data-attfill]");
+    if (!btn) return;
+    document.querySelectorAll("#attQuickFillWrap .tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll("#attQuickFillWrap .tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("attfill-" + btn.dataset.attfill).classList.add("active");
+  });
+
+  // Shared logic: given rows of [rollOrId, status], tick the matching
+  // checkboxes. Accepts "Present"/"Absent" or short "P"/"A", any case.
+  function applyAttendanceRows(rows) {
+    const fillMsg = document.getElementById("attFillMsg");
+    let matched = 0, unmatched = [];
+    rows.forEach(([rawId, rawStatus]) => {
+      const idVal = String(rawId).trim().toUpperCase();
+      if (!idVal) return;
+      const sid = attStudentsByRoll[idVal] || attStudentsById[idVal];
+      if (!sid) { unmatched.push(rawId); return; }
+      const status = String(rawStatus).trim().toLowerCase();
+      const isPresent = status.startsWith("p"); // "present" or "p" → present; anything else → absent
+      const box = document.querySelector(`[data-att-sid="${sid}"]`);
+      if (box) { box.checked = isPresent; matched++; }
+    });
+    fillMsg.textContent = unmatched.length
+      ? `Applied to ${matched} student(s). Not matched: ${unmatched.join(", ")}.`
+      : `Applied to ${matched} student(s). Review the checkboxes above, then click "Save Attendance".`;
+    fillMsg.className = "form-msg show " + (unmatched.length ? "error" : "success");
+  }
+
+  document.getElementById("attApplyPasteBtn").addEventListener("click", () => {
+    const text = document.getElementById("att-paste-text").value.trim();
+    if (!text) return;
+    const rows = text.split("\n").map((line) => line.split(",").map((s) => s.trim())).filter((r) => r.length >= 2);
+    applyAttendanceRows(rows);
+  });
+
+  document.getElementById("attApplyFileBtn").addEventListener("click", async () => {
+    const fileInput = document.getElementById("att-import-file");
+    const fillMsg = document.getElementById("attFillMsg");
+    const file = fileInput.files[0];
+    if (!file) { fillMsg.textContent = "Choose a file first."; fillMsg.className = "form-msg show error"; return; }
+    if (typeof XLSX === "undefined") { fillMsg.textContent = "The spreadsheet reader didn't load. Refresh and try again."; fillMsg.className = "form-msg show error"; return; }
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const rows = data.map((row) => {
+      const keys = Object.keys(row);
+      const idKey = keys.find((k) => /roll|student\s*id|^id$/i.test(k.trim()));
+      const statusKey = keys.find((k) => /status|present|attendance/i.test(k.trim()));
+      return [idKey ? row[idKey] : "", statusKey ? row[statusKey] : ""];
+    }).filter((r) => r[0]);
+    applyAttendanceRows(rows);
   });
 
   document.getElementById("attSaveBtn").addEventListener("click", async () => {
