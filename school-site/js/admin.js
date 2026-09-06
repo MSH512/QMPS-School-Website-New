@@ -58,7 +58,8 @@ const panelTitles = {
   dashboard: "Dashboard", news: "News & Notices", events: "Events", achievements: "Achievements",
   gallery: "Gallery", students: "Students", teachers: "Teachers", results: "Results",
   complaints: "Shikayat Letters", progress: "Progress Reports",
-  admissions: "Admissions", jobs: "Job Applications", messages: "Contact Messages", settings: "Site Settings"
+  admissions: "Admissions", jobs: "Job Applications", messages: "Contact Messages",
+  settings: "Site Settings", samples: "Samples & Templates"
 };
 const loaders = {}; // filled in below, one per panel
 
@@ -295,7 +296,7 @@ document.getElementById("addAchBtn").addEventListener("click", () => {
       </div>
       <div class="form-grid">
         <div class="field"><label>Name *</label><input id="f-person" placeholder="Full name" required></div>
-        <div class="field"><label>Role *</label><select id="f-role"><option>Student</option><option>Teacher</option><option>Principal</option><option>Alumnus</option></select></div>
+        <div class="field"><label>Role *</label><select id="f-role"><option>Student</option><option>Teacher</option><option>Principal</option></select></div>
       </div>
       <div class="field"><label>Date *</label><input type="date" id="f-date" value="${new Date().toISOString().slice(0, 10)}" required></div>
       <div class="field"><label>Details *</label><textarea id="f-details" placeholder="What did they achieve?" required></textarea></div>
@@ -470,14 +471,26 @@ async function loadStudents() {
       <td class="table-actions">
         <button class="link-btn" data-edit="${d.id}">Edit</button>
         <button class="link-btn" data-reset="${d.id}">Reset Password</button>
+        <button class="link-btn" data-card="${d.id}">${s.cardGenerated ? "Re-generate Card" : "Generate Card"}</button>
         <button class="link-btn danger" data-del="${d.id}">Delete</button>
       </td></tr>`;
   }).join("");
   tbody.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => studentForm(b.dataset.edit)));
   tbody.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => confirmDelete("students", b.dataset.del, loadStudents)));
   tbody.querySelectorAll("[data-reset]").forEach((b) => b.addEventListener("click", () => resetStudentPassword(b.dataset.reset)));
+  tbody.querySelectorAll("[data-card]").forEach((b) => b.addEventListener("click", () => generateStudentCard(b.dataset.card)));
 }
 document.getElementById("addStudentBtn").addEventListener("click", () => studentForm());
+
+async function generateStudentCard(sid) {
+  const s = await getDoc(doc(db, "students", sid));
+  const data = s.data();
+  if (!data.photoUrl) { alert("Add a photo for this student first (Edit → Photo), then generate the card."); return; }
+  if (!data.session) { alert("Set the Session for this student first (Edit → Session), then generate the card."); return; }
+  await updateDoc(doc(db, "students", sid), { cardGenerated: true, cardGeneratedAt: serverTimestamp() });
+  alert("Student ID card generated. It now appears in this student's portal for download.");
+  loadStudents();
+}
 
 async function resetStudentPassword(sid) {
   const newPass = prompt(`Set a new password for ${sid}:`);
@@ -487,7 +500,7 @@ async function resetStudentPassword(sid) {
 }
 
 async function studentForm(sid) {
-  let data = { name: "", fatherName: "", class: "Grade 1", dob: "", parentContact: "", rollNo: "" };
+  let data = { name: "", fatherName: "", class: "Grade 1", dob: "", parentContact: "", rollNo: "", session: "", photoUrl: "" };
   let isEdit = !!sid;
   if (sid) {
     const s = await getDoc(doc(db, "students", sid));
@@ -507,21 +520,31 @@ async function studentForm(sid) {
         <div class="field"><label>Class *</label><select id="f-class" ${isEdit ? "disabled" : ""}>${classOptions}</select></div>
         <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${data.dob}"></div>
       </div>
-      <div class="field"><label>Parent contact number *</label><input id="f-contact" value="${esc(data.parentContact)}" required></div>
+      <div class="form-grid">
+        <div class="field"><label>Session</label><input id="f-session" value="${esc(data.session)}" placeholder="e.g. 2025-2026"></div>
+        <div class="field"><label>Parent contact number *</label><input id="f-contact" value="${esc(data.parentContact)}" required></div>
+      </div>
+      ${mediaFieldHTML("f-photo", "Student photo (for ID card)", "image/*", data.photoUrl)}
       ${!isEdit ? `<div class="field"><label>Set initial password *</label><input id="f-password" required></div>` : ""}
       <p class="hint mb-0" style="margin-bottom:14px;">${isEdit ? `Student ID: <strong style="font-family:var(--font-mono);">${sid}</strong>` : "Student ID and roll number are generated automatically once you save."}</p>
       <div class="form-msg" id="fMsg"></div>
-      <div style="display:flex; gap:10px;"><button type="submit" class="btn btn-primary">Save</button><button type="button" class="btn btn-outline" style="border-color:var(--line); color:var(--navy-900);" id="cancelBtn">Cancel</button></div>
+      <div style="display:flex; gap:10px;"><button type="submit" class="btn btn-primary" id="saveBtn">Save</button><button type="button" class="btn btn-outline" style="border-color:var(--line); color:var(--navy-900);" id="cancelBtn">Cancel</button></div>
     </form>`);
+  wireMediaField("f-photo");
   document.getElementById("cancelBtn").addEventListener("click", closeModal);
   document.getElementById("entityForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msgEl = document.getElementById("fMsg");
+    const saveBtn = document.getElementById("saveBtn");
+    saveBtn.disabled = true; saveBtn.textContent = "Saving...";
+    const photoUrl = await resolveMedia("f-photo", data.photoUrl);
     const payload = {
       name: document.getElementById("f-name").value,
       fatherName: document.getElementById("f-father").value,
       class: isEdit ? data.class : document.getElementById("f-class").value,
-      dob: document.getElementById("f-dob").value
+      dob: document.getElementById("f-dob").value,
+      session: document.getElementById("f-session").value,
+      photoUrl
     };
     const parentContact = document.getElementById("f-contact").value;
     try {
@@ -545,6 +568,7 @@ async function studentForm(sid) {
     } catch (err) {
       msgEl.textContent = "Could not save student. Please try again.";
       msgEl.className = "form-msg show error";
+      saveBtn.disabled = false; saveBtn.textContent = "Save";
     }
   });
 }
@@ -556,7 +580,7 @@ loaders.students = loadStudents;
    least 7 periods) and may optionally be the Class Teacher of one
    class (which gives them access to that class's attendance register).
    ========================================================= */
-const PERIOD_COUNT = 7;
+const PERIOD_COUNT = 8;
 const CLASS_LIST = Object.keys(CLASS_CODES);
 
 async function loadTeachers() {
@@ -598,6 +622,9 @@ function timetableRowsHTML(timetable) {
         <td><select id="tt-class-${i}"><option value="">— Free period —</option>${CLASS_LIST.map((c) => `<option ${p.class === c ? "selected" : ""}>${c}</option>`).join("")}</select></td>
         <td><input id="tt-subject-${i}" placeholder="Subject" value="${esc(p.subject || "")}"></td>
       </tr>`);
+    if (i === 3) {
+      rows.push(`<tr style="background:var(--paper-100);"><td colspan="3" style="text-align:center; font-weight:700; color:var(--gold-500);">— Break —</td></tr>`);
+    }
   }
   return rows.join("");
 }
@@ -672,6 +699,11 @@ loaders.teachers = loadTeachers;
    requirement that only teachers upload results.
    ========================================================= */
 async function loadResults() {
+  const classSel = document.getElementById("excel-class");
+  if (classSel && !classSel.dataset.populated) {
+    classSel.innerHTML = `<option value="">— Select class —</option>` + CLASS_LIST.map((c) => `<option>${esc(c)}</option>`).join("");
+    classSel.dataset.populated = "1";
+  }
   const tbody = document.getElementById("resultsTable");
   tbody.innerHTML = `<tr><td colspan="5">Loading&hellip;</td></tr>`;
   const snap = await getDocs(query(collection(db, "results"), orderBy("date", "desc")));
@@ -685,6 +717,198 @@ async function loadResults() {
   tbody.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => confirmDelete("results", b.dataset.del, loadResults)));
 }
 loaders.results = loadResults;
+
+/* =========================================================
+   BULK CLASS RESULT UPLOAD (Excel/CSV) — admin picks a class, uploads
+   a spreadsheet, and the system creates one result per student.
+
+   This is built to work with real school result sheets, not just a
+   strict template:
+     - Any title/school-name rows above the real header row are
+       skipped automatically — it finds whichever row actually
+       contains a "Student ID" column and treats that as the header.
+     - Matches each row to a student by full Student ID, by Roll
+       Number (e.g. "7001"), or by Name — whichever is present.
+     - If your sheet already has Total Marks / Obtained Marks /
+       Percentage / Grade / Position columns filled in, those exact
+       values are used as-is (nothing is recalculated or overridden).
+       If they're missing, they're calculated automatically from the
+       subject columns instead.
+     - Subject columns can be written either as a plain number (e.g.
+       "88") or as "obtained/total" (e.g. "88/100") — both work.
+   ========================================================= */
+let parsedExcelRows = null;
+
+function classifyResultColumn(header) {
+  const h = String(header).trim().toLowerCase();
+  if (h === "student id" || h === "id") return "id";
+  if (h.includes("roll")) return "roll";
+  if (h.includes("name") && !h.includes("father")) return "name";
+  if (h.includes("father")) return "father";
+  if (h === "s.no" || h === "sno" || h === "#") return "sno";
+  if (h.includes("total") && h.includes("mark")) return "totalMarks";
+  if (h.includes("obtain") && h.includes("mark")) return "obtainedMarks";
+  if (h.includes("pecentage") || h.includes("percentage") || h === "%") return "percentage";
+  if (h === "grade") return "grade";
+  if (h.includes("posit")) return "position"; // also catches common "possition" typo
+  if (h.includes("remark")) return "remarks";
+  return "subject";
+}
+
+document.getElementById("processExcelBtn")?.addEventListener("click", async () => {
+  const fileInput = document.getElementById("excel-file");
+  const msgEl = document.getElementById("excelMsg");
+  const previewEl = document.getElementById("excelPreview");
+  msgEl.className = "form-msg";
+  const file = fileInput.files[0];
+  const cls = document.getElementById("excel-class").value;
+  if (!file) { msgEl.textContent = "Choose a file first."; msgEl.className = "form-msg show error"; return; }
+  if (!cls) { msgEl.textContent = "Select a class first."; msgEl.className = "form-msg show error"; return; }
+  if (typeof XLSX === "undefined") { msgEl.textContent = "The spreadsheet reader didn't load. Check your internet connection and refresh."; msgEl.className = "form-msg show error"; return; }
+
+  const studentsSnap = await getDocs(query(collection(db, "students"), where("class", "==", cls)));
+  const studentsById = {}, studentsByRoll = {}, studentsByName = {};
+  studentsSnap.docs.forEach((d) => {
+    const data = d.data();
+    studentsById[d.id.toUpperCase()] = { id: d.id, ...data };
+    if (data.rollNo) studentsByRoll[String(data.rollNo).trim().toUpperCase()] = { id: d.id, ...data };
+    studentsByName[(data.name || "").trim().toLowerCase()] = { id: d.id, ...data };
+  });
+
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }); // array-of-arrays, ignores nothing
+
+  // Find the real header row — the first row that contains a
+  // "Student ID" style column, wherever it is in the sheet.
+  let headerRowIdx = -1, headers = [];
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i].some((cell) => ["id", "roll"].includes(classifyResultColumn(cell)))) { headerRowIdx = i; headers = raw[i].map(String); break; }
+  }
+  if (headerRowIdx === -1) {
+    msgEl.textContent = `Couldn't find a "Student ID" column anywhere in this file. Make sure one column is headed exactly "Student ID".`;
+    msgEl.className = "form-msg show error";
+    return;
+  }
+  const colTypes = headers.map(classifyResultColumn);
+
+  parsedExcelRows = [];
+  for (let i = headerRowIdx + 1; i < raw.length; i++) {
+    const row = raw[i];
+    if (!row || row.every((c) => c === "" || c === null || c === undefined)) continue; // skip blank rows
+
+    let idVal = "", rollVal = "", nameVal = "", fatherVal = "", subjects = [];
+    let totalMarks = null, obtainedMarks = null, percentage = null, grade = null, positionText = null, remarks = "";
+
+    headers.forEach((h, idx) => {
+      const cell = row[idx];
+      if (cell === undefined || cell === "") return;
+      switch (colTypes[idx]) {
+        case "id": idVal = String(cell).trim(); break;
+        case "roll": rollVal = String(cell).trim(); break;
+        case "name": nameVal = String(cell).trim(); break;
+        case "father": fatherVal = String(cell).trim(); break;
+        case "totalMarks": totalMarks = Number(cell); break;
+        case "obtainedMarks": obtainedMarks = Number(cell); break;
+        case "percentage": percentage = Math.round(Number(cell) * 10) / 10; break;
+        case "grade": grade = String(cell).trim(); break;
+        case "position": positionText = String(cell).trim(); break;
+        case "remarks": remarks = String(cell).trim(); break;
+        case "subject": {
+          const rawVal = String(cell).trim();
+          if (rawVal.includes("/")) {
+            const [ob, tot] = rawVal.split("/").map((n) => Number(n.trim()));
+            if (!isNaN(ob) && !isNaN(tot)) subjects.push({ name: String(h).trim(), obtained: ob, marks: tot });
+          } else {
+            const num = Number(rawVal);
+            if (!isNaN(num)) subjects.push({ name: String(h).trim(), obtained: num, marks: null });
+          }
+          break;
+        }
+      }
+    });
+
+    // Match to a real student: full Student ID → Roll Number → Name
+    let student = null;
+    if (idVal && studentsById[idVal.toUpperCase()]) student = studentsById[idVal.toUpperCase()];
+    else if (idVal && studentsByRoll[idVal.toUpperCase()]) student = studentsByRoll[idVal.toUpperCase()];
+    else if (rollVal && studentsByRoll[rollVal.toUpperCase()]) student = studentsByRoll[rollVal.toUpperCase()];
+    else if (nameVal && studentsByName[nameVal.toLowerCase()]) student = studentsByName[nameVal.toLowerCase()];
+
+    // Fill in anything the sheet didn't already calculate itself
+    if (totalMarks === null && subjects.length) totalMarks = subjects.reduce((s, x) => s + (x.marks || 0), 0) || null;
+    if (obtainedMarks === null) obtainedMarks = subjects.reduce((s, x) => s + (x.obtained || 0), 0);
+    if (percentage === null && totalMarks) percentage = Math.round((obtainedMarks / totalMarks) * 1000) / 10;
+    if (grade === null && percentage !== null) grade = gradeFor(percentage);
+
+    parsedExcelRows.push({ student, subjects, totalMarks, obtainedMarks, percentage, grade, positionText, remarks, fatherVal, rawIdVal: idVal || rollVal || nameVal });
+  }
+
+  previewEl.innerHTML = `
+    <table class="data-table" style="margin-top:16px;">
+      <thead><tr><th>Sheet Value</th><th>Matched Student</th><th>Subjects</th><th>%</th><th>Status</th></tr></thead>
+      <tbody>
+        ${parsedExcelRows.map((r) => `
+          <tr>
+            <td style="font-family:var(--font-mono);">${esc(r.rawIdVal)}</td>
+            <td>${r.student ? esc(r.student.name) + ` (${esc(r.student.id)})` : `<span style="color:var(--danger);">Not matched</span>`}</td>
+            <td>${r.subjects.length}</td>
+            <td>${r.percentage ?? "—"}</td>
+            <td>${r.student && (r.subjects.length || r.obtainedMarks) ? "Ready" : "Skipped"}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+  const readyCount = parsedExcelRows.filter((r) => r.student && (r.subjects.length || r.obtainedMarks)).length;
+  document.getElementById("confirmExcelBtn").style.display = readyCount ? "inline-flex" : "none";
+  msgEl.textContent = readyCount
+    ? `Processed ${parsedExcelRows.length} row(s) — ${readyCount} ready to save. Check the preview below, then confirm.`
+    : `Processed ${parsedExcelRows.length} row(s), but none matched a student in ${cls}. Check that the Student ID/Roll No values match your Students list exactly, and that you picked the right class.`;
+  msgEl.classList.add("show", readyCount ? "success" : "error");
+});
+
+document.getElementById("confirmExcelBtn")?.addEventListener("click", async () => {
+  const btn = document.getElementById("confirmExcelBtn");
+  const msgEl = document.getElementById("excelMsg");
+  const cls = document.getElementById("excel-class").value;
+  const examTitle = document.getElementById("excel-exam").value;
+  const type = document.getElementById("excel-type").value;
+  const dateVal = document.getElementById("excel-date").value;
+  if (!examTitle || !dateVal) { msgEl.textContent = "Fill in Exam Title and Date first."; msgEl.className = "form-msg show error"; return; }
+
+  btn.disabled = true; btn.textContent = "Saving...";
+  let saved = 0;
+  try {
+    for (const row of parsedExcelRows) {
+      if (!row.student || !(row.subjects.length || row.obtainedMarks)) continue;
+      await addDoc(collection(db, "results"), {
+        type, studentId: row.student.id, studentName: row.student.name,
+        fatherName: row.fatherVal || row.student.fatherName, class: cls,
+        examTitle, subjects: row.subjects,
+        total: `${row.obtainedMarks ?? 0} / ${row.totalMarks ?? "—"}`,
+        percentage: row.percentage ?? 0,
+        grade: row.grade || gradeFor(row.percentage ?? 0),
+        positionText: row.positionText || null,
+        remarks: row.remarks || "", teacherName: "Admin (bulk upload)", date: Timestamp.fromDate(new Date(dateVal))
+      });
+      saved++;
+    }
+    msgEl.textContent = "";
+    msgEl.className = "form-msg";
+    document.getElementById("excelPreview").innerHTML = `
+      <div class="admin-card" style="background:var(--success-bg); border-color:var(--success); margin-top:16px;">
+        <h3 style="color:var(--success); margin-bottom:6px;">&#10003; Results Saved</h3>
+        <p class="mb-0"><strong>${esc(examTitle)}</strong> &middot; ${esc(cls)} &middot; ${saved} student(s)</p>
+      </div>`;
+    btn.style.display = "none";
+    loadResults();
+  } catch {
+    msgEl.textContent = "Something went wrong saving these results. Please try again.";
+    msgEl.className = "form-msg show error";
+  } finally {
+    btn.disabled = false; btn.textContent = "Confirm & Save Results";
+  }
+});
 
 /* =========================================================
    COMPLAINTS (Shikayat Letters) — created from the Teacher Portal,
@@ -829,7 +1053,13 @@ async function loadSettings() {
       <tr><td style="font-family:var(--font-mono); font-weight:700;">P${i + 1}</td>
       <td><input type="time" id="pt-start-${i}" value="${esc(p.start || "")}"></td>
       <td><input type="time" id="pt-end-${i}" value="${esc(p.end || "")}"></td></tr>`);
+    if (i === 3) {
+      body.insertAdjacentHTML("beforeend", `
+        <tr style="background:var(--paper-100);"><td colspan="3" style="text-align:center; font-weight:700; color:var(--gold-500);">— Break —</td></tr>`);
+    }
   }
+  document.getElementById("pt-break-start").value = data.breakStart || "";
+  document.getElementById("pt-break-end").value = data.breakEnd || "";
 }
 loaders.settings = loadSettings;
 
@@ -842,7 +1072,9 @@ document.getElementById("savePeriodTimesBtn").addEventListener("click", async ()
       end: document.getElementById(`pt-end-${i}`).value
     });
   }
-  await setDoc(doc(db, "siteSettings", "main"), { periodTimes }, { merge: true });
+  const breakStart = document.getElementById("pt-break-start").value;
+  const breakEnd = document.getElementById("pt-break-end").value;
+  await setDoc(doc(db, "siteSettings", "main"), { periodTimes, breakStart, breakEnd, breakAfterPeriod: 4 }, { merge: true });
   alert("Period timings saved. They now appear on every teacher's timetable.");
 });
 
@@ -879,4 +1111,52 @@ document.getElementById("saveSettingsBtn").addEventListener("click", async () =>
     mapEmbedUrl: document.getElementById("set-map").value
   }, { merge: true });
   alert("Settings saved.");
+});
+
+/* =========================================================
+   Admin sidebar logo — the sidebar is separate from the public
+   site's shared header, so it needs its own check for a saved logo.
+   ========================================================= */
+(async function applyAdminSidebarLogo() {
+  try {
+    const s = await getDoc(doc(db, "siteSettings", "main"));
+    if (s.exists() && s.data().logoUrl) {
+      document.querySelectorAll(".admin-sidebar .brand-logo").forEach((el) => {
+        el.innerHTML = `<img src="${s.data().logoUrl}" alt="School logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      });
+    }
+  } catch { /* fine — sidebar just keeps the placeholder */ }
+})();
+
+/* =========================================================
+   Samples & Templates — downloadable reference files so the exact
+   upload format is never forgotten.
+   ========================================================= */
+function downloadTextFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("downloadResultSampleBtn")?.addEventListener("click", () => {
+  const csv = [
+    "Student ID,Name,English,Urdu,Mathematics,Science,Social Studies,Remarks",
+    "QMPS-26-6-6001,Ali Hassan,42/50,45/50,88/100,79/100,38/50,Good progress this term",
+    "QMPS-26-6-6002,Zainab Kareem,48/50,40/50,95/100,85/100,44/50,Excellent performance",
+    "QMPS-26-6-6003,Bilal Ahmed,30/50,35/50,60/100,55/100,28/50,Needs improvement in Math"
+  ].join("\n");
+  downloadTextFile("sample-class-result-template.csv", csv, "text/csv");
+});
+
+document.getElementById("downloadAttPasteSampleBtn")?.addEventListener("click", () => {
+  const txt = "7001, Present\n7002, Absent\n7003, P\n7004, A\n7005, Present";
+  downloadTextFile("attendance-paste-sample.txt", txt, "text/plain");
+});
+
+document.getElementById("downloadAttFileSampleBtn")?.addEventListener("click", () => {
+  const csv = "Roll No,Status\n7001,Present\n7002,Absent\n7003,Present\n7004,Absent\n7005,Present";
+  downloadTextFile("attendance-upload-sample.csv", csv, "text/csv");
 });
