@@ -6,6 +6,7 @@
 <title>Student Portal | Quaid-e-Millat Public School Ameerabad</title>
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 <div id="site-header"></div>
@@ -44,6 +45,12 @@
         <button class="btn btn-outline" style="border-color:var(--line); color:var(--navy-900);" id="logoutBtn">Log Out</button>
       </div>
 
+      <div class="admin-card" id="idCardSection" style="display:none;">
+        <h3>My Student ID Card</h3>
+        <div id="idCardWrap"></div>
+        <button class="btn btn-dark btn-sm" style="margin-top:16px;" id="downloadCardBtn">Download Card</button>
+      </div>
+
       <div class="admin-card">
         <h3>My Progress at a Glance</h3>
         <div class="stat-row" id="analyticsStats"></div>
@@ -57,7 +64,16 @@
           <button class="tab-btn" data-restab="monthly">Monthly</button>
           <button class="tab-btn" data-restab="weekly">Weekly</button>
         </div>
-        <div class="tab-panel active" id="restab-term"><div id="resultTerm"><p class="muted">Loading&hellip;</p></div></div>
+        <div class="tab-panel active" id="restab-term">
+          <div class="field" style="max-width:360px; margin-bottom:16px;">
+            <label>Enter your Student ID or Roll Number to view your Term Result</label>
+            <div style="display:flex; gap:8px;">
+              <input id="termSearchInput" placeholder="e.g. QMPS-26-7-7001 or 7001" style="font-family:var(--font-mono);">
+              <button class="btn btn-primary btn-sm" id="termSearchBtn">Search</button>
+            </div>
+          </div>
+          <div id="resultTerm"><div class="empty-state">Enter your Student ID or Roll Number above to view your term result.</div></div>
+        </div>
         <div class="tab-panel" id="restab-monthly"><div id="resultMonthly"><p class="muted">Loading&hellip;</p></div></div>
         <div class="tab-panel" id="restab-weekly"><div id="resultWeekly"><p class="muted">Loading&hellip;</p></div></div>
       </div>
@@ -130,18 +146,76 @@
     document.getElementById("restab-" + btn.dataset.restab).classList.add("active");
   });
 
+  let currentStudentId = "", currentStudentRoll = "", termResultsCache = [];
+
+  document.getElementById("termSearchBtn").addEventListener("click", () => {
+    const val = document.getElementById("termSearchInput").value.trim().toUpperCase();
+    const resultEl = document.getElementById("resultTerm");
+    if (!val) { resultEl.innerHTML = `<div class="empty-state">Enter your Student ID or Roll Number.</div>`; return; }
+    if (val === currentStudentId.toUpperCase() || val === String(currentStudentRoll).toUpperCase()) {
+      renderTermResults(termResultsCache);
+    } else {
+      resultEl.innerHTML = `<div class="empty-state">That doesn't match your account. Please enter your own Student ID or Roll Number.</div>`;
+    }
+  });
+
   async function showPortal(sid, student) {
     loginView.style.display = "none";
     portalView.style.display = "block";
     document.getElementById("welcomeName").textContent = "Welcome, " + student.name;
     document.getElementById("welcomeMeta").textContent = `Student ID: ${sid} · Class: ${student.class} · Roll No: ${student.rollNo}`;
+    currentStudentId = sid;
+    currentStudentRoll = student.rollNo || "";
 
     loadResults(sid);
     loadAnalytics(sid, student.class);
     loadProgressReports(sid);
     loadComplaints(sid);
+    renderIdCard(sid, student);
     renderNews("#portal-news", 3);
   }
+
+  async function renderIdCard(sid, student) {
+    const section = document.getElementById("idCardSection");
+    if (!student.cardGenerated) { section.style.display = "none"; return; }
+    section.style.display = "block";
+
+    let logoUrl = "";
+    try {
+      const s = await getDoc(doc(db, "siteSettings", "main"));
+      if (s.exists()) logoUrl = s.data().logoUrl || "";
+    } catch { /* fine — falls back to QM placeholder below */ }
+    const logoHtml = logoUrl
+      ? `<img src="${esc(logoUrl)}" alt="School logo" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+      : "QM";
+
+    document.getElementById("idCardWrap").innerHTML = `
+      <div class="id-card" id="idCardVisual">
+        <div class="id-card-head">
+          <span class="brand-logo">${logoHtml}</span>
+          <div><b>Quaid-e-Millat Public School</b><span>Ameerabad &middot; Ghanche</span></div>
+        </div>
+        <div class="id-card-body">
+          <img class="id-card-photo" src="${esc(student.photoUrl)}" alt="${esc(student.name)}" crossorigin="anonymous">
+          <div class="id-card-fields">
+            <b>Name</b><span class="val">${esc(student.name)}</span>
+            <b>Class</b><span class="val">${esc(student.class)}</span>
+            <b>Student ID</b><span class="val">${esc(sid)}</span>
+            <b>Session</b><span class="val">${esc(student.session || "—")}</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  document.getElementById("downloadCardBtn").addEventListener("click", async () => {
+    const cardEl = document.getElementById("idCardVisual");
+    if (!cardEl || typeof html2canvas === "undefined") return;
+    const canvas = await html2canvas(cardEl, { scale: 2, backgroundColor: null, useCORS: true });
+    const link = document.createElement("a");
+    link.download = "QMPS-Student-ID-Card.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
 
   let trendChartInstance = null;
   async function loadAnalytics(sid, studentClass) {
@@ -206,21 +280,48 @@
       const q = query(collection(db, "results"), where("studentId", "==", sid));
       const snap = await getDocs(q);
       const all = snap.docs.map((d) => d.data()).sort((a, b) => toMillis(b.date) - toMillis(a.date));
-      renderTermResults(all.filter((r) => r.type === "term"));
+      // Term results are cached, not shown, until the student searches
+      // for them by their own Student ID/Roll Number (see termSearchBtn).
+      termResultsCache = all.filter((r) => r.type === "term");
       renderSubjectResults(all.filter((r) => r.type === "monthly"), "monthly", "#resultMonthly");
       renderSubjectResults(all.filter((r) => r.type === "weekly"), "weekly", "#resultWeekly");
     } catch {
-      document.getElementById("resultTerm").innerHTML = `<div class="empty-state">Could not load your results right now.</div>`;
       document.getElementById("resultMonthly").innerHTML = "";
       document.getElementById("resultWeekly").innerHTML = "";
     }
   }
 
-  function renderTermResults(results) {
+  async function computePosition(r) {
+    // Prefer a position already given in the uploaded sheet (e.g. "1st").
+    if (r.positionText) return r.positionText;
+    // Otherwise rank within the same class + exam, using only a single
+    // equality filter (class) so this never needs a Firestore composite
+    // index — the rest is filtered and sorted right here in the browser.
+    try {
+      const snap = await getDocs(query(collection(db, "results"), where("class", "==", r.class)));
+      const sameExam = snap.docs
+        .map((d) => d.data())
+        .filter((x) => x.type === "term" && x.examTitle === r.examTitle && typeof x.percentage === "number");
+      if (!sameExam.length) return null;
+      const sorted = [...sameExam].sort((a, b) => b.percentage - a.percentage);
+      const rank = sorted.findIndex((x) => x.studentId === r.studentId) + 1;
+      return rank ? `${rank} of ${sorted.length}` : null;
+    } catch { return null; }
+  }
+
+  async function renderTermResults(results) {
     const el = document.getElementById("resultTerm");
     if (!results.length) { el.innerHTML = `<div class="empty-state">No term result uploaded yet.</div>`; return; }
-    el.innerHTML = results.map((r) => {
-      const rows = (r.subjects || []).map((s) => `<tr><td>${esc(s.name)}</td><td>${esc(s.marks)}</td><td>${esc(s.obtained)}</td></tr>`).join("");
+
+    const positions = await Promise.all(results.map(computePosition));
+
+    el.innerHTML = results.map((r, i) => {
+      const subjects = r.subjects || [];
+      const hasPerSubjectTotal = subjects.some((s) => s.marks != null);
+      const rows = subjects.map((s) => hasPerSubjectTotal
+        ? `<tr><td>${esc(s.name)}</td><td>${s.marks == null ? "—" : esc(s.marks)}</td><td>${esc(s.obtained)}</td></tr>`
+        : `<tr><td>${esc(s.name)}</td><td>${esc(s.obtained)}</td></tr>`
+      ).join("");
       return `
       <div style="margin-bottom:28px;">
         <div class="result-header">
@@ -228,12 +329,13 @@
           <span class="result-id">${esc(r.studentId)}</span>
         </div>
         <table class="result-table">
-          <thead><tr><th>Subject</th><th>Total Marks</th><th>Obtained Marks</th></tr></thead>
+          <thead><tr><th>Subject</th>${hasPerSubjectTotal ? "<th>Total Marks</th>" : ""}<th>Obtained Marks</th></tr></thead>
           <tbody>${rows}</tbody>
           <tfoot>
-            <tr><td><strong>Total</strong></td><td colspan="2"><strong>${esc(r.total)}</strong></td></tr>
-            <tr><td><strong>Percentage</strong></td><td colspan="2"><strong>${esc(r.percentage)}%</strong></td></tr>
-            <tr><td><strong>Grade</strong></td><td colspan="2"><strong>${esc(r.grade)}</strong></td></tr>
+            <tr><td><strong>Total</strong></td><td colspan="${hasPerSubjectTotal ? 2 : 1}"><strong>${esc(r.total)}</strong></td></tr>
+            <tr><td><strong>Percentage</strong></td><td colspan="${hasPerSubjectTotal ? 2 : 1}"><strong>${esc(r.percentage)}%</strong></td></tr>
+            <tr><td><strong>Grade</strong></td><td colspan="${hasPerSubjectTotal ? 2 : 1}"><strong>${esc(r.grade)}</strong></td></tr>
+            <tr><td><strong>Class Position</strong></td><td colspan="${hasPerSubjectTotal ? 2 : 1}"><strong>${positions[i] ? esc(positions[i]) : "—"}</strong></td></tr>
           </tfoot>
         </table>
         <p class="small muted" style="margin-top:8px;"><strong>Remarks:</strong> ${esc(r.remarks || "—")}</p>
